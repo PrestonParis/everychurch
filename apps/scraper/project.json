@@ -1,0 +1,84 @@
+{
+  "name": "scraper",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/scraper/scraper",
+  "targets": {
+    "docs": {
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "pydoc-markdown -p scraper --render-toc > docs/source/api.md",
+        "cwd": "apps/scraper"
+      }
+    },
+    "lock": {
+      "executor": "@nxlv/python:run-commands",
+      "options": {
+        "command": "poetry lock --no-update",
+        "cwd": "apps/scraper"
+      }
+    },
+    "add": {
+      "executor": "@nxlv/python:add",
+      "options": {}
+    },
+    "update": {
+      "executor": "@nxlv/python:update",
+      "options": {}
+    },
+    "remove": {
+      "executor": "@nxlv/python:remove",
+      "options": {}
+    },
+    "build": {
+      "executor": "@nxlv/python:build",
+      "outputs": ["{projectRoot}/dist"],
+      "options": {
+        "outputPath": "apps/scraper/dist",
+        "publish": true,
+        "lockedVersions": true,
+        "bundleLocalDependencies": true
+      }
+    },
+    "install": {
+      "executor": "@nxlv/python:install",
+      "options": {
+        "silent": false,
+        "args": "",
+        "cacheDir": ".cache/pypoetry",
+        "verbose": false,
+        "debug": false
+      }
+    },
+    "lint": {
+      "executor": "@nxlv/python:flake8",
+      "outputs": ["{workspaceRoot}/reports/apps/scraper/pylint.txt"],
+      "options": {
+        "outputFile": "reports/apps/scraper/pylint.txt"
+      }
+    },
+    "test": {
+      "executor": "@nxlv/python:run-commands",
+      "outputs": [
+        "{workspaceRoot}/reports/apps/scraper/unittests",
+        "{workspaceRoot}/coverage/apps/scraper"
+      ],
+      "options": {
+        "command": "poetry run pytest tests/",
+        "cwd": "apps/scraper"
+      }
+    },
+    "tox": {
+      "executor": "@nxlv/python:tox",
+      "outputs": [
+        "{workspaceRoot}/reports/apps/scraper/unittests",
+        "{workspaceRoot}/coverage/apps/scraper"
+      ],
+      "options": {
+        "silent": false,
+        "args": ""
+      }
+    }
+  },
+  "tags": []
+}
