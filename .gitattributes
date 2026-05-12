@@ -1,0 +1,11 @@
+# Mark documentation and config as non-target for stats
+docs/* linguist-documentation
+*.json linguist-generated
+*.md linguist-documentation
+
+# Ensure Spring Boot and Python are counted fully
+server/**/*.java linguist-detectable
+apps/scraper/**/*.py linguist-detectable
+
+# If you have large data files or mocks, exclude them
+apps/client/src/assets/* linguist-vendored
