@@ -1,96 +1,81 @@
-# Everychurch
+# EveryChurch
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A platform for discovering, reviewing, and managing churches. Users get a standardized, clean view of any church with aggregated data from Google Maps, Yelp, and other external sources. Churches can claim their listing and use the platform as an internal management system. Church data is continuously populated via an automated scraping pipeline.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## What it does
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+**For visitors:**
+- Search and browse churches with a standardized, modern profile page
+- See aggregated reviews and ratings pulled from Google Maps, Yelp, and other sources
+- View service times, location, contact info, denomination, and other key details
 
-## Run tasks
+**For churches:**
+- Claim ownership of a listing to unlock management features
+- Manage staff/employees
+- Upload and store sermons
+- Edit profile information
 
-To run tasks with Nx use:
+**Data pipeline:**
+- Automated Google Maps traversal discovers churches
+- Web scraping populates and keeps church data current
+- Runs as an AWS Lambda worker (Python)
 
-```sh
-npx nx <target> <project-name>
+## Architecture
+
+This is an Nx monorepo with three apps:
+
+| App | Tech | Purpose |
+|-----|------|---------|
+| `apps/client` | Angular 21, Tailwind CSS | Frontend SPA |
+| `server` | Spring Boot 4 (Java 21) | REST API backend |
+| `apps/scraper` | Python, AWS Lambda | Data ingestion pipeline |
+
+```
+everychurch/
+├── apps/
+│   ├── client/          # Angular frontend
+│   ├── client-e2e/      # Playwright end-to-end tests
+│   └── scraper/         # Python scraper (AWS Lambda)
+├── server/              # Spring Boot API
+└── docs/                # Project documentation
 ```
 
-For example:
+## Getting started
+
+### Prerequisites
+
+- Node.js 20+
+- Java 21
+- Python 3.8–3.10 (managed via pyenv, see `.python-version`)
+- Poetry (Python dependency management)
+
+### Install dependencies
 
 ```sh
-npx nx build myproject
+npm install
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-To install a new plugin you can use the `nx add` command. Here's an example of adding the React plugin:
-```sh
-npx nx add @nx/react
-```
-
-Use the plugin's generator to create new projects. For example, to create a new React app or library:
+### Run the full stack
 
 ```sh
-# Generate an app
-npx nx g @nx/react:app demo
+# Run all services concurrently
+npx nx run-many --target=serve --all
 
-# Generate a library
-npx nx g @nx/react:lib some-lib
+# Or run individually
+npx nx serve client      # Angular dev server → http://localhost:4200
+npx nx serve server      # Spring Boot API → http://localhost:8080
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
+### Run tests
 
 ```sh
-npx nx connect
+npx nx test client
+npx nx e2e client-e2e
+npx nx test scraper      # Python tests via pytest
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+## Docs
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/getting-started/intro#learn-nx?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- [Commands reference](docs/COMMANDS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Scraper / data pipeline](docs/SCRAPER.md)

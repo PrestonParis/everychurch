@@ -49,3 +49,7 @@ Thumbs.db
 .agents
 .claude
 .nx/cache
+### VS Code ###
+.vscode/
+CLAUDE.md
+docs/

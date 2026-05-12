@@ -1,0 +1,92 @@
+<div class="min-h-screen bg-slate-50">
+
+  <!-- Page header -->
+  <div class="bg-white border-b border-slate-200">
+    <div class="max-w-6xl mx-auto px-6 py-12">
+      <h1 class="text-3xl font-bold text-slate-900 mb-1">Church Directory</h1>
+      <p class="text-slate-500 text-sm mb-8">Find a church near you</p>
+
+      <div class="relative max-w-lg">
+        <svg class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          [(ngModel)]="query"
+          (ngModelChange)="onSearch()"
+          placeholder="Search by name, denomination, or city…"
+          class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="max-w-6xl mx-auto px-6 py-10">
+
+    @if (loading) {
+      <div class="flex justify-center py-24">
+        <div class="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+      </div>
+    } @else if (error) {
+      <div class="text-center py-24">
+        <p class="text-slate-500">Could not connect to the server. Make sure the API is running.</p>
+      </div>
+    } @else if (filtered.length === 0) {
+      <div class="text-center py-24">
+        <p class="text-slate-500 text-lg mb-4">No churches found.</p>
+        <a routerLink="/churches/new" class="text-indigo-600 text-sm font-medium hover:underline">Add the first one →</a>
+      </div>
+    } @else {
+      <p class="text-xs font-medium text-slate-400 uppercase tracking-widest mb-6">
+        {{ filtered.length }} church{{ filtered.length !== 1 ? 'es' : '' }}
+      </p>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        @for (church of filtered; track church.id) {
+          <a [routerLink]="['/churches', church.id]"
+             class="group bg-white rounded-2xl ring-1 ring-slate-200 hover:ring-indigo-300 hover:shadow-md transition-all duration-150 p-6 flex flex-col">
+
+            <!-- Header -->
+            <div class="flex items-start gap-4 mb-4">
+              <div [class]="'flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm ' + avatarBg(church.denomination)">
+                {{ initials(church.name) }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h2 class="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug line-clamp-2">{{ church.name }}</h2>
+                @if (church.denomination) {
+                  <span [class]="'mt-1.5 inline-block text-xs font-medium px-2 py-0.5 rounded-full ' + denominationBadge(church.denomination)">
+                    {{ church.denomination }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <!-- Location -->
+            @if (church.city || church.state) {
+              <p class="text-sm text-slate-500 flex items-center gap-1.5 mb-3">
+                <svg class="w-3.5 h-3.5 flex-shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                {{ church.city }}@if (church.city && church.state) {, }{{ church.state }}
+              </p>
+            }
+
+            <!-- Description -->
+            @if (church.description) {
+              <p class="text-sm text-slate-600 line-clamp-2 flex-1 leading-relaxed">{{ church.description }}</p>
+            }
+
+            <!-- Footer -->
+            <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span class="text-xs text-slate-400">
+                {{ church.serviceTimes?.length || 0 }} service time{{ church.serviceTimes?.length !== 1 ? 's' : '' }}
+              </span>
+              <span class="text-xs font-semibold text-indigo-600 group-hover:text-indigo-700">View →</span>
+            </div>
+          </a>
+        }
+      </div>
+    }
+  </div>
+</div>

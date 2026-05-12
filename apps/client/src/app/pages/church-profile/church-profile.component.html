@@ -1,0 +1,275 @@
+@if (loading) {
+  <div class="flex justify-center items-center min-h-screen bg-slate-50">
+    <div class="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+  </div>
+} @else if (error || !church) {
+  <div class="flex flex-col items-center justify-center min-h-screen bg-slate-50 text-center px-4">
+    <p class="text-slate-500 text-lg mb-4">Church not found.</p>
+    <a routerLink="/churches" class="text-indigo-600 font-medium hover:underline">← Back to directory</a>
+  </div>
+} @else {
+
+  <!-- ── HERO ─────────────────────────────────────────────────── -->
+  <div class="relative bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white overflow-hidden">
+    <!-- dot texture -->
+    <div class="absolute inset-0 opacity-[0.06]"
+         style="background-image:radial-gradient(circle,white 1px,transparent 1px);background-size:28px 28px"></div>
+
+    <div class="relative max-w-6xl mx-auto px-6 pt-8 pb-14">
+      <!-- Back -->
+      <a routerLink="/churches"
+         class="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-10 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+        </svg>
+        All churches
+      </a>
+
+      <div class="flex items-start gap-6 flex-wrap">
+        <!-- Avatar -->
+        @if (church.imageUrl) {
+          <img [src]="church.imageUrl" alt=""
+               class="w-20 h-20 rounded-2xl object-cover ring-2 ring-white/20 flex-shrink-0">
+        } @else {
+          <div class="w-20 h-20 rounded-2xl bg-white/10 backdrop-blur flex items-center justify-center text-2xl font-bold flex-shrink-0 ring-2 ring-white/20 select-none">
+            {{ initials }}
+          </div>
+        }
+
+        <div class="flex-1 min-w-0">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 class="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-3">{{ church.name }}</h1>
+
+              <div class="flex items-center gap-3 flex-wrap">
+                @if (church.denomination) {
+                  <span [class]="'inline-flex items-center px-3 py-1 rounded-full border text-sm font-medium ' + denominationBadge(church.denomination)">
+                    {{ church.denomination }}
+                  </span>
+                }
+                @if (church.city || church.state) {
+                  <span class="flex items-center gap-1 text-slate-400 text-sm">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ church.city }}@if (church.city && church.state) {, }{{ church.state }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <!-- Edit button -->
+            <a [routerLink]="['/churches', church.id, 'edit']"
+               class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              Edit
+            </a>
+          </div>
+
+          @if (church.description) {
+            <p class="mt-5 text-slate-400 text-sm leading-relaxed max-w-2xl">{{ church.description }}</p>
+          }
+        </div>
+      </div>
+    </div>
+    <div class="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/40 to-transparent"></div>
+  </div>
+
+  <!-- ── QUICK INFO RIBBON ──────────────────────────────────── -->
+  @if (church.phone || church.email || church.website || fullAddress) {
+    <div class="bg-white border-b border-slate-200">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="flex items-center gap-8 h-14 overflow-x-auto">
+
+          @if (church.phone) {
+            <a [href]="'tel:' + church.phone"
+               class="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 whitespace-nowrap transition-colors flex-shrink-0">
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+              </svg>
+              {{ church.phone }}
+            </a>
+          }
+
+          @if (church.email) {
+            <a [href]="'mailto:' + church.email"
+               class="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 whitespace-nowrap transition-colors flex-shrink-0">
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              {{ church.email }}
+            </a>
+          }
+
+          @if (church.website) {
+            <a [href]="church.website" target="_blank" rel="noopener"
+               class="flex items-center gap-2 text-sm text-slate-600 hover:text-indigo-600 whitespace-nowrap transition-colors flex-shrink-0">
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+              </svg>
+              {{ truncate(church.website) }}
+            </a>
+          }
+
+          @if (fullAddress) {
+            <span class="flex items-center gap-2 text-sm text-slate-500 whitespace-nowrap flex-shrink-0">
+              <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              {{ fullAddress }}
+            </span>
+          }
+
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ── MAIN CONTENT ───────────────────────────────────────── -->
+  <div class="bg-slate-50 min-h-screen">
+    <div class="max-w-6xl mx-auto px-6 py-10">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+        <!-- Left (2/3) -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- About -->
+          @if (church.description) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">About</h2>
+              <p class="text-slate-700 leading-relaxed">{{ church.description }}</p>
+            </div>
+          }
+
+          <!-- Service Times -->
+          @if (sortedServiceTimes.length > 0) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 overflow-hidden">
+              <div class="px-6 pt-6 pb-3">
+                <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400">Service Times</h2>
+              </div>
+              <div class="divide-y divide-slate-100">
+                @for (st of sortedServiceTimes; track st.id) {
+                  <div class="px-6 py-4 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-6 min-w-0">
+                      <span class="w-24 flex-shrink-0 text-sm font-semibold text-slate-900">{{ st.dayOfWeek }}</span>
+                      <span class="text-sm text-slate-600 font-mono">{{ st.time }}</span>
+                      @if (st.language && st.language !== 'English' && st.language !== '') {
+                        <span class="text-xs text-slate-400 italic">{{ st.language }}</span>
+                      }
+                    </div>
+                    <span [class]="'flex-shrink-0 text-xs font-medium px-3 py-1 rounded-full ' + serviceTypeBadge(st.type)">
+                      {{ st.type }}
+                    </span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Leadership -->
+          @if (church.pastor) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-5">Leadership</h2>
+              <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm flex-shrink-0">
+                  {{ church.pastor[0] }}
+                </div>
+                <div>
+                  <p class="font-semibold text-slate-900">{{ church.pastor }}</p>
+                  <p class="text-sm text-slate-500">Lead Pastor</p>
+                </div>
+              </div>
+            </div>
+          }
+
+        </div>
+
+        <!-- Right (1/3) -->
+        <div class="space-y-6">
+
+          <!-- Details -->
+          @if (church.denomination) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Details</h2>
+              <div class="flex items-start gap-3">
+                <span class="text-xs text-slate-400 w-28 flex-shrink-0 pt-0.5 font-medium">Denomination</span>
+                <span class="text-sm text-slate-900">{{ church.denomination }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Connect -->
+          @if (church.website || church.facebook || church.instagram || church.youtube) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Connect</h2>
+              <div class="space-y-3">
+
+                @if (church.website) {
+                  <a [href]="church.website" target="_blank" rel="noopener"
+                     class="flex items-center gap-3 text-sm text-slate-700 hover:text-indigo-600 transition-colors">
+                    <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>
+                    </svg>
+                    Website
+                  </a>
+                }
+
+                @if (church.facebook) {
+                  <a [href]="church.facebook" target="_blank" rel="noopener"
+                     class="flex items-center gap-3 text-sm text-slate-700 hover:text-blue-600 transition-colors">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                    </svg>
+                    Facebook
+                  </a>
+                }
+
+                @if (church.instagram) {
+                  <a [href]="church.instagram" target="_blank" rel="noopener"
+                     class="flex items-center gap-3 text-sm text-slate-700 hover:text-pink-600 transition-colors">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                    Instagram
+                  </a>
+                }
+
+                @if (church.youtube) {
+                  <a [href]="church.youtube" target="_blank" rel="noopener"
+                     class="flex items-center gap-3 text-sm text-slate-700 hover:text-red-600 transition-colors">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    YouTube
+                  </a>
+                }
+
+              </div>
+            </div>
+          }
+
+          <!-- Location -->
+          @if (fullAddress) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Location</h2>
+              <p class="text-sm text-slate-700 leading-relaxed mb-4">{{ fullAddress }}</p>
+              <a [href]="mapsUrl(fullAddress)" target="_blank" rel="noopener"
+                 class="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                </svg>
+                Open in Google Maps
+              </a>
+            </div>
+          }
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+}
