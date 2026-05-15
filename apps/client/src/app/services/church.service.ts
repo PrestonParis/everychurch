@@ -6,7 +6,7 @@ import { Church } from '../models/church.model';
 @Injectable({ providedIn: 'root' })
 export class ChurchService {
   private http = inject(HttpClient);
-  private base = 'http://localhost:8080/api/churches';
+  private base = '/api/churches';
 
   private cache: Church[] | null = null;
 
