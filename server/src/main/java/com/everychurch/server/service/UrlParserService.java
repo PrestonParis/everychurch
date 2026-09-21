@@ -100,7 +100,7 @@ public class UrlParserService {
 
         return new ChurchDto(null, name, null, street, city, state, zip,
             telephone, null, siteUrl, description, imageUrl, null,
-            null, null, null, false, serviceTimes);
+            null, null, null, false, null, null, serviceTimes);
     }
 
     private ChurchDto fromMeta(Document doc) {
@@ -120,7 +120,7 @@ public class UrlParserService {
             null, null, null, null, null, null, null,
             description.isBlank() ? null : description,
             image.isBlank() ? null : image,
-            null, null, null, null, false, List.of());
+            null, null, null, null, false, null, null, List.of());
     }
 
     private String text(JsonNode node, String field) {

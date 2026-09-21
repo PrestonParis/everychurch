@@ -36,7 +36,15 @@ public class Church {
 
     private boolean claimed = false;
 
-    @OneToMany(mappedBy = "church", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private Double latitude;
+    private Double longitude;
+
+    // LAZY on purpose: the paginated list/search/nearest endpoints (ChurchService)
+    // never touch this association and map straight to an empty list instead — nobody
+    // needs a church's full schedule to render a list card. GET /api/churches/{id} is
+    // the only place it's actually used, and loads it explicitly via
+    // ChurchRepository.findById's @EntityGraph rather than relying on EAGER here.
+    @OneToMany(mappedBy = "church", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ServiceTime> serviceTimes = new ArrayList<>();
 
     public Long getId() { return id; }
@@ -89,6 +97,12 @@ public class Church {
 
     public boolean isClaimed() { return claimed; }
     public void setClaimed(boolean claimed) { this.claimed = claimed; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 
     public List<ServiceTime> getServiceTimes() { return serviceTimes; }
     public void setServiceTimes(List<ServiceTime> serviceTimes) { this.serviceTimes = serviceTimes; }

@@ -20,5 +20,7 @@ public record ChurchDto(
     String instagram,
     String youtube,
     Boolean claimed,
+    Double latitude,
+    Double longitude,
     List<ServiceTimeDto> serviceTimes
 ) {}
