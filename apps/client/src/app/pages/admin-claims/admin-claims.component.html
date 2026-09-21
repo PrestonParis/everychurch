@@ -1,0 +1,68 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Church claims</h1>
+      <div class="flex gap-1 bg-white rounded-lg ring-1 ring-slate-200 p-1">
+        @for (s of STATUSES; track s) {
+          <button (click)="setFilter(s)"
+                  class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+                  [class]="statusFilter() === s ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'">
+            {{ s }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (error()) {
+      <p class="text-sm text-red-600 mb-4">{{ error() }}</p>
+    }
+
+    @if (loading()) {
+      <p class="text-sm text-slate-500">Loading…</p>
+    } @else if (claims().length === 0) {
+      <p class="text-sm text-slate-500">No {{ statusFilter().toLowerCase() }} claims.</p>
+    } @else {
+      <div class="space-y-4">
+        @for (claim of claims(); track claim.id) {
+          <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-5">
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div class="min-w-0">
+                <a [routerLink]="['/churches', claim.churchId]" class="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">
+                  {{ claim.churchName }}
+                </a>
+                <p class="text-sm text-slate-500 mt-0.5 break-words">
+                  Requested by <span class="font-medium text-slate-700">{{ claim.requesterEmail }}</span>
+                  · {{ claim.createdAt | date: 'mediumDate' }}
+                </p>
+              </div>
+
+              @if (claim.status === 'PENDING') {
+                <div class="flex gap-2 shrink-0">
+                  <button (click)="reject(claim.id)" [disabled]="decidingId() === claim.id"
+                          class="px-3 py-1.5 rounded-lg text-sm font-semibold text-red-600 ring-1 ring-red-200 hover:bg-red-50 disabled:opacity-50 transition-colors">
+                    Reject
+                  </button>
+                  <button (click)="approve(claim.id)" [disabled]="decidingId() === claim.id"
+                          class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+                    Approve
+                  </button>
+                </div>
+              } @else {
+                <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                      [class]="claim.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                  {{ claim.status }}
+                </span>
+              }
+            </div>
+
+            @if (claim.notes) {
+              <p class="mt-3 text-sm text-slate-700 bg-slate-50 rounded-lg px-3 py-2 whitespace-pre-wrap break-words">{{ claim.notes }}</p>
+            } @else {
+              <p class="mt-3 text-sm text-slate-400 italic">No note provided.</p>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+</div>

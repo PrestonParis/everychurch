@@ -59,16 +59,17 @@
               </div>
             </div>
 
-            <!-- Edit + management links -->
-            <div class="flex-shrink-0 flex items-center gap-2 flex-wrap justify-end">
-              <a [routerLink]="['/churches', church.id, 'edit']"
-                 class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-                Edit
-              </a>
-              @if (authService.isAuthenticated()) {
+            <!-- Edit + management links: only for people the server would let through
+                 (staff/owner/admin, or anyone while the listing is still unclaimed) -->
+            @if (canManage) {
+              <div class="flex items-center gap-2 flex-wrap sm:justify-end">
+                <a [routerLink]="['/churches', church.id, 'edit']"
+                   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                  Edit
+                </a>
                 <a [routerLink]="['/churches', church.id, 'images']"
                    class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
                   Photos
@@ -81,8 +82,8 @@
                    class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
                   + Event
                 </a>
-              }
-            </div>
+              </div>
+            }
           </div>
 
           @if (church.description) {
@@ -239,10 +240,16 @@
             </div>
           }
 
+          <!-- Community: join/leave, member list, group chat -->
+          <app-church-community [churchId]="church.id!" />
+
         </div>
 
         <!-- Right (1/3) -->
         <div class="space-y-6">
+
+          <!-- Claim: how an unclaimed listing gets an owner -->
+          <app-church-claim [churchId]="church.id!" [claimed]="church.claimed === true" />
 
           <!-- Details -->
           @if (church.denomination) {

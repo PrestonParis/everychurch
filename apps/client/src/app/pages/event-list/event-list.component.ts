@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ChurchEvent } from '../../models/event.model';
 import { EventService } from '../../services/event.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-event-list',
@@ -11,6 +12,7 @@ import { EventService } from '../../services/event.service';
 })
 export class EventListComponent implements OnInit {
   private eventService = inject(EventService);
+  authService = inject(AuthService);
 
   events = signal<ChurchEvent[]>([]);
   loading = signal(true);

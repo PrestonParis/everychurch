@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Church, DENOMINATIONS, ServiceTime } from '../../models/church.model';
@@ -36,14 +36,24 @@ export class ChurchFormComponent implements OnInit {
   });
 
   importUrl = '';
-  importing = false;
-  importError = '';
-  importSuccess = false;
 
   isEdit = false;
   churchId: number | null = null;
-  loading = false;
-  saving = false;
+
+  // Async-mutated view state is signal-backed (exposed as plain-looking properties so the
+  // template is unchanged). The app is zoneless, so a plain field assigned inside an HTTP
+  // callback never repaints: editing a church would spin forever and a failed save would
+  // leave the button stuck on "saving".
+  private readonly _importing = signal(false);
+  private readonly _importError = signal('');
+  private readonly _importSuccess = signal(false);
+  private readonly _loading = signal(false);
+  private readonly _saving = signal(false);
+  get importing(): boolean { return this._importing(); }
+  get importError(): string { return this._importError(); }
+  get importSuccess(): boolean { return this._importSuccess(); }
+  get loading(): boolean { return this._loading(); }
+  get saving(): boolean { return this._saving(); }
 
   readonly DENOMINATIONS = DENOMINATIONS;
 
@@ -70,16 +80,16 @@ export class ChurchFormComponent implements OnInit {
     if (id && id !== 'new') {
       this.isEdit = true;
       this.churchId = Number(id);
-      this.loading = true;
+      this._loading.set(true);
       this.churchService.getById(this.churchId).subscribe({
         next: (church) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           this.form.patchValue(church as any);
           church.serviceTimes?.forEach((st) => this.addServiceTimeGroup(st));
-          this.loading = false;
+          this._loading.set(false);
         },
         error: () => {
-          this.loading = false;
+          this._loading.set(false);
         },
       });
     }
@@ -105,9 +115,9 @@ export class ChurchFormComponent implements OnInit {
     const url = this.importUrl.trim();
     if (!url) return;
 
-    this.importing = true;
-    this.importError = '';
-    this.importSuccess = false;
+    this._importing.set(true);
+    this._importError.set('');
+    this._importSuccess.set(false);
 
     this.churchService.parseUrl(url).subscribe({
       next: (data) => {
@@ -118,20 +128,20 @@ export class ChurchFormComponent implements OnInit {
           while (this.serviceTimesArray.length) this.serviceTimesArray.removeAt(0);
           serviceTimes.forEach((st) => this.addServiceTimeGroup(st));
         }
-        this.importing = false;
-        this.importSuccess = true;
-        setTimeout(() => (this.importSuccess = false), 4000);
+        this._importing.set(false);
+        this._importSuccess.set(true);
+        setTimeout(() => this._importSuccess.set(false), 4000);
       },
       error: (err) => {
-        this.importing = false;
-        this.importError = err.error?.error ?? 'Could not fetch that URL. Try another.';
+        this._importing.set(false);
+        this._importError.set(err.error?.error ?? 'Could not fetch that URL. Try another.');
       },
     });
   }
 
   save() {
     if (this.form.invalid) return;
-    this.saving = true;
+    this._saving.set(true);
 
     const value = this.form.getRawValue() as unknown as Church;
     const obs =
@@ -141,7 +151,7 @@ export class ChurchFormComponent implements OnInit {
 
     obs.subscribe({
       next: (church) => this.router.navigate(['/churches', church.id]),
-      error: () => (this.saving = false),
+      error: () => this._saving.set(false),
     });
   }
 }

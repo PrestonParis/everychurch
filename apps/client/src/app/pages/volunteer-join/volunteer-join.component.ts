@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
@@ -20,20 +20,24 @@ export class VolunteerJoinComponent {
     password: ['', [Validators.required, Validators.minLength(8)]],
   });
 
-  submitting = false;
-  error = '';
+  // Signal-backed: the app is zoneless, so a plain field assigned in an HTTP callback
+  // never repaints (a rejected invite code would show no error).
+  private readonly _submitting = signal(false);
+  private readonly _error = signal('');
+  get submitting(): boolean { return this._submitting(); }
+  get error(): string { return this._error(); }
 
   submit() {
     if (this.form.invalid) return;
-    this.submitting = true;
-    this.error = '';
+    this._submitting.set(true);
+    this._error.set('');
 
     const { code, email, password } = this.form.getRawValue();
     this.authService.registerVolunteer(code!, email!, password!).subscribe({
       next: () => this.router.navigate(['/churches']),
       error: (err) => {
-        this.submitting = false;
-        this.error = err.error?.error ?? 'Could not redeem that invite. Check the code and try again.';
+        this._submitting.set(false);
+        this._error.set(err.error?.error ?? 'Could not redeem that invite. Check the code and try again.');
       },
     });
   }

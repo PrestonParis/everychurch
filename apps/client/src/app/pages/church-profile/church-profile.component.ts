@@ -9,11 +9,15 @@ import { ChurchImageService } from '../../services/church-image.service';
 import { SermonService } from '../../services/sermon.service';
 import { EventService } from '../../services/event.service';
 import { AuthService } from '../../services/auth.service';
+import { ChurchCommunityComponent } from './church-community.component';
+import { ChurchClaimComponent } from './church-claim.component';
+import { MemberService } from '../../services/member.service';
+import { MembershipStatus } from '../../models/member.model';
 
 @Component({
   selector: 'app-church-profile',
   standalone: true,
-  imports: [RouterModule],
+  imports: [RouterModule, ChurchCommunityComponent, ChurchClaimComponent],
   templateUrl: './church-profile.component.html',
 })
 export class ChurchProfileComponent implements OnInit {
@@ -22,11 +26,20 @@ export class ChurchProfileComponent implements OnInit {
   private churchImageService = inject(ChurchImageService);
   private sermonService = inject(SermonService);
   private eventService = inject(EventService);
+  private memberService = inject(MemberService);
   authService = inject(AuthService);
 
-  church: Church | null = null;
-  loading = true;
-  error = false;
+  // Backed by signals, exposed as plain-looking properties so the template reads them
+  // unchanged. The app is zoneless (no zone.js), so a plain field assigned inside an HTTP
+  // callback never triggers a re-render — the spinner would spin forever. A signal write
+  // is what schedules the render.
+  private readonly _church = signal<Church | null>(null);
+  private readonly _loading = signal(true);
+  private readonly _error = signal(false);
+  private readonly _status = signal<MembershipStatus | null>(null);
+  get church(): Church | null { return this._church(); }
+  get loading(): boolean { return this._loading(); }
+  get error(): boolean { return this._error(); }
 
   // Gallery, sermons, and events are independent of the core profile load — a
   // failure loading any of them shouldn't block the rest of the page.
@@ -40,14 +53,21 @@ export class ChurchProfileComponent implements OnInit {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.churchService.getById(id).subscribe({
       next: (data) => {
-        this.church = data;
-        this.loading = false;
+        this._church.set(data);
+        this._loading.set(false);
       },
       error: () => {
-        this.error = true;
-        this.loading = false;
+        this._error.set(true);
+        this._loading.set(false);
       },
     });
+
+    if (this.authService.isAuthenticated()) {
+      this.memberService.status(id).subscribe({
+        next: (status) => this._status.set(status),
+        error: () => this._status.set(null),
+      });
+    }
 
     this.churchImageService.list(id).subscribe({
       next: (images) => this.images.set([...images].sort((a, b) => a.sortOrder - b.sortOrder)),
@@ -70,6 +90,19 @@ export class ChurchProfileComponent implements OnInit {
       },
       error: () => this.upcomingEvents.set([]),
     });
+  }
+
+  /**
+   * Whether to show the Edit/Photos/Sermons/Event controls. Mirrors the server's rule so
+   * nobody is offered a button that ends in a refusal: an unclaimed listing has no owner yet
+   * so any logged-in user may edit it; once claimed, only its staff (or a Platform Admin).
+   * For a claimed church we hide the controls until we know the answer rather than flash them.
+   */
+  get canManage(): boolean {
+    const church = this.church;
+    if (!church || !this.authService.isAuthenticated()) return false;
+    if (!church.claimed) return true;
+    return this.authService.currentUser()?.role === 'PLATFORM_ADMIN' || this._status()?.staff === true;
   }
 
   isVideo(url: string): boolean {

@@ -21,7 +21,9 @@ export class EventDetailComponent implements OnInit {
   private churchService = inject(ChurchService);
   authService = inject(AuthService);
 
-  event: ChurchEvent | null = null;
+  // Signal-backed (zoneless app: a plain field set in an HTTP callback doesn't repaint).
+  private readonly _event = signal<ChurchEvent | null>(null);
+  get event(): ChurchEvent | null { return this._event(); }
   churches = signal<Church[]>([]);
   loading = signal(true);
   error = signal(false);
@@ -31,7 +33,7 @@ export class EventDetailComponent implements OnInit {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.eventService.get(id).subscribe({
       next: (event) => {
-        this.event = event;
+        this._event.set(event);
         this.loadChurches(event.churchIds);
       },
       error: () => {
