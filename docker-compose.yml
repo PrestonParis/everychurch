@@ -1,0 +1,19 @@
+services:
+  db:
+    # postgis/postgis bundles the PostGIS + pg_trgm extensions the schema now
+    # requires (see docs/ARCHITECTURE.md "Database") — plain postgres:16-alpine
+    # doesn't carry the postgis control files at all, so CREATE EXTENSION postgis
+    # would fail even before Neon's plan-support question comes into it.
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: everychurch
+      POSTGRES_USER: everychurch
+      POSTGRES_PASSWORD: everychurch
+    ports:
+      - "5432:5432"
+    volumes:
+      - everychurch-db-data:/var/lib/postgresql/data
+
+volumes:
+  everychurch-db-data:

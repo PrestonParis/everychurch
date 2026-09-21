@@ -28,11 +28,22 @@ node_modules
 /.sass-cache
 /connect.lock
 /coverage
+/reports
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
 testem.log
 /typings
+
+# Python (apps/scraper)
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+.venv/
+.venv*/
+*.egg-info/
+apps/scraper/.cache/
 
 # System Files
 .DS_Store
@@ -52,5 +63,3 @@ Thumbs.db
 ### VS Code ###
 .vscode/
 CLAUDE.md
-docs/
-scripts/
