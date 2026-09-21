@@ -41,4 +41,10 @@ public class User {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    /** Local part of the email — what other congregants see instead of the full address. */
+    public String getDisplayName() {
+        int at = email.indexOf('@');
+        return at > 0 ? email.substring(0, at) : email;
+    }
 }

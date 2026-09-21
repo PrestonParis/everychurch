@@ -3,6 +3,7 @@ package com.everychurch.server.config;
 import com.everychurch.server.security.BulkImportApiKeyFilter;
 import com.everychurch.server.security.JwtAuthenticationFilter;
 import com.everychurch.server.security.ScraperApiKeyFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
@@ -69,10 +70,29 @@ public class SecurityConfig {
                     response.getWriter().write("{\"error\":\"Unauthorized\"}");
                 }))
             .authorizeHttpRequests(authorize -> authorize
+                // Spring Security answers "logged in but not allowed" with sendError(403); the
+                // servlet container then re-dispatches to /error as an ERROR-type request.
+                // If that dispatch is itself authorized it is anonymous (the JWT filter is a
+                // OncePerRequestFilter and doesn't run again), so it fails and the entry point
+                // overwrites the 403 with a 401 — every permission failure looked like an
+                // expired session to real clients. MockMvc never does this dispatch, which is
+                // why only a test on a real container (RealContainerStatusCodeTest) sees it.
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                // Congregation-private GETs under /api/churches/{id}/ — must come before the
+                // public GET rule below (first match wins), otherwise an anonymous request
+                // slips through the security layer and reaches a controller with a null
+                // Authentication (a 500) instead of being rejected here with a 401.
+                .requestMatchers("/api/churches/*/staff/**", "/api/churches/*/members/**", "/api/churches/*/messages/**")
+                    .authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/churches/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/r/**").permitAll()
+                // The WebSocket handshake is a plain HTTP upgrade a browser won't put an
+                // Authorization header on, so it can't be authenticated here. The real
+                // gate is StompAuthChannelInterceptor, which requires a valid JWT on the
+                // STOMP CONNECT frame and then checks every SUBSCRIBE and SEND.
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("PLATFORM_ADMIN")
                 // More specific than /api/scraper/** below — must come first, or
                 // Spring Security's first-match-wins ordering would let the broader
