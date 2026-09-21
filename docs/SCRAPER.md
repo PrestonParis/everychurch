@@ -75,13 +75,29 @@ POST /api/admin/scraper-runs/trigger   {"region": "RI"} or {} to auto-pick -> {"
 
 `trigger` does **not** invoke a real Lambda — none is deployed yet (see docs/PROMPTS.md Prompt 6's scope note: that needs AWS credentials and explicit sign-off, not a code-writing pass). It records a `RUNNING` `ScraperRun` via the same start path and returns a message telling a human to run the scraper locally to fulfil it. `ScraperInvoker` is the seam for a future `LambdaScraperInvoker` (`LambdaClient.invoke(...)`) to swap in later without `ScraperRunService` changing.
 
+## Bulk import (Kaggle "us-places-of-worship")
+
+*Implemented (Prompt 7)* — `scraper/bulk_import.py`, server side `BulkImportController` + `BulkImportApiKeyFilter`. A one-time/occasional seed, **not** part of `pipeline.run()` or the Lambda. Run manually: `python -m scraper.bulk_import` (needs `BULK_IMPORT_API_KEY`, `SERVER_BASE_URL`).
+
+**Dataset findings (inspected, not guessed — version 1, 49,328 rows):** `subtype` is a clean religion category on every row (`CHRISTIAN` 42,697; `JUDAIC` 3,256; `BUDDHIST` 1,711; `MUSLIM` 1,254; `HINDU` 282; `OTHER` 128). `x`/`y` are longitude/latitude. `zip` is stored as an int, dropping leading zeros on ~4,051 New England rows (re-zero-padded to 5 digits). The dataset's null convention is the literal string `"NOT AVAILABLE"` (except `telephone`, which uses real NaN). It has no website/email/description. It contains no Jehovah's Witness entries (0 "witness" name matches — the few "JEHOVAH …" names are Baptist churches); LDS is present (2,117 rows) and correctly under `CHRISTIAN`. It has 65 internal duplicate name+zip rows.
+
+**Filtering:** primary filter is `subtype == CHRISTIAN`. On top of that, a name-keyword safety net *excludes* obvious non-Christian names (mosque, synagogue, temple, gurdwara, masjid, shul) even when `subtype` says CHRISTIAN, and *falls back* to church/chapel/cathedral/parish/ministry keywords if `subtype` were ever missing (not observed).
+
+**Mapping/dedup:** columns are mapped to `ChurchDto`'s camelCase shape (`denom`→`denomination`, `telephone`→`phone`, `x`/`y`→`longitude`/`latitude`). Supplying coordinates means `ChurchService.create` trusts them and skips geocoding — no Geocoding API quota is burned. Rows are deduped within the dataset, then against the server via the same normalized name+zip key as `dedup.py`. The existing-church set is built by paging `GET /api/churches` (`page`/`size`), tolerating both the paginated `{content, totalPages}` shape and the older bare array; no unpaginated public endpoint was reintroduced.
+
+**Ingestion — a trusted path, not the review queue.** Pushing tens of thousands of rows through `ChurchSubmission` review is impractical, so `POST /api/scraper/bulk-import` (`{"churches": [...]}` → `201 {"created": n}`) creates unclaimed `Church` rows directly via `ChurchService.create`. Because it writes without review, it is gated by its **own** secret, `BULK_IMPORT_API_KEY` (header `X-Bulk-Import-Api-Key`, role `ROLE_BULK_IMPORTER`), independently revocable from `SCRAPER_API_KEY`; neither key works on the other's endpoint (403). Two trust tiers now exist: **reviewed** (volunteer submissions + live scraper discovery, via `ChurchSubmission`) vs. **trusted bulk seed** (this import). Anything imported this way is still fully subject to the ordinary `Claim` workflow afterward — only initial creation skips review.
+
+**Resumability:** no checkpoint file — a re-run after a partial failure re-dedupes against what's already imported. Batches (`DEFAULT_BATCH_SIZE = 100`) are separated by `DEFAULT_BATCH_DELAY_S` and progress is logged per batch.
+
+**Kaggle auth:** this dataset downloaded fine anonymously via `kagglehub`; if a download ever fails, set `KAGGLE_USERNAME`/`KAGGLE_KEY` (or `~/.kaggle/kaggle.json`). Python floor was raised to 3.9 because `kagglehub` requires it.
+
 ## Local development
 
 ```sh
 npx nx test scraper        # pytest — scraper/ is fully covered (--cov-fail-under=100)
 ```
 
-Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`.
+Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`; for bulk import only: `BULK_IMPORT_API_KEY` (plus optional `KAGGLE_USERNAME`/`KAGGLE_KEY`).
 
 The Lambda entry point is `scraper.index.lambda_handler`, which delegates to `pipeline.run()` (discover → dedup → enrich → submit). Locally:
 

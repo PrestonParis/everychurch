@@ -36,7 +36,7 @@ The scraper does not talk to the database directly — it submits discovered chu
 
 ## Data Model
 
-> See [DATA_MODEL.md](DATA_MODEL.md) for the full entity-by-entity breakdown. `User`, `Claim`, `ChurchStaff`, `ChurchSubmission`, `ChurchImage`, `Event`, and `Sermon` are all implemented; `Member`, `Article`, `Survey`/`Question`/`Response`, and `Report` are still planned (Faith Formation and Vetting haven't started).
+> See [DATA_MODEL.md](DATA_MODEL.md) for the full entity-by-entity breakdown. `User`, `Claim`, `ChurchStaff`, `ChurchSubmission`, `ChurchImage`, `Event`, `Sermon`, `Member`, and `Message` are all implemented; `Article`, `Survey`/`Question`/`Response`, and `Report` are still planned (Faith Formation and Vetting haven't started).
 
 ## Auth & Permissions Model
 
@@ -58,7 +58,9 @@ Rationale over session-based auth: the client is a separate SPA origin from the 
 
 A single `User` can hold one global `Role` plus zero or more `ChurchStaff`/`Member` rows scoping them to specific churches. "Church Admin" is a capability tier, not itself a permission set — permission checks always resolve through the per-church `ChurchStaff.permissions`, so a Church Admin for Church A has no implicit access to Church B.
 
-**Authorization baseline:** `GET /api/churches/**`, `GET /api/events/**`, and `/api/auth/**` are public; `/api/admin/**` requires `ROLE_PLATFORM_ADMIN`; everything else requires a valid JWT at minimum (`SecurityConfig`, `JwtAuthenticationFilter`). Church-scoped write endpoints (`ChurchController`, `ChurchStaffController`, `ChurchImageController`, `EventController`, `SermonController`) go further and check ownership through `Claim`/`ChurchStaff`: once a church is claimed, editing needs `EDIT_PROFILE` (or a more specific permission like `MANAGE_EVENTS`/`MANAGE_SERMONS`) and deleting the church itself needs to be the owner specifically — a `PLATFORM_ADMIN` bypasses all of these. An *unclaimed* church has no owner yet, so it stays open to any authenticated user until someone claims it.
+**Authorization baseline:** `GET /api/churches/**`, `GET /api/events/**`, and `/api/auth/**` are public — *except* the congregation-private sub-resources `/api/churches/{id}/staff`, `/members` and `/messages`, which are listed as authenticated ahead of that rule; `/ws/**` is open at the HTTP layer because the WebSocket handshake can't carry a JWT (see "Group chat"); `/api/admin/**` requires `ROLE_PLATFORM_ADMIN`; everything else requires a valid JWT at minimum (`SecurityConfig`, `JwtAuthenticationFilter`). Church-scoped write endpoints (`ChurchController`, `ChurchStaffController`, `ChurchImageController`, `EventController`, `SermonController`) go further and check ownership through `Claim`/`ChurchStaff`: once a church is claimed, editing needs `EDIT_PROFILE` (or a more specific permission like `MANAGE_EVENTS`/`MANAGE_SERMONS`) and deleting the church itself needs to be the owner specifically — a `PLATFORM_ADMIN` bypasses all of these. An *unclaimed* church has no owner yet, so it stays open to any authenticated user until someone claims it.
+
+**403 vs 401 on a real server.** Spring Security answers "logged in but not allowed" with `sendError(403)`; the servlet container then re-dispatches the request to `/error` as an `ERROR`-type dispatch. If that internal dispatch is itself authorized it's anonymous (the JWT filter doesn't run again), fails, and the entry point overwrites the 403 with a **401** — so every permission failure looked like an expired session to real clients (which matters: a client treats 401 as "log in again"). `SecurityConfig` therefore permits `DispatcherType.ERROR`. This was invisible to every MockMvc test, because MockMvc never performs the container's error dispatch; `RealContainerStatusCodeTest` exercises it over a real socket. Prefer that style for any test whose point is the actual HTTP status.
 
 **Volunteer onboarding (Prompt 7):** volunteers are recruited in person — tabling, church visits — not through self-service signup, and the `VOLUNTEER` role carries real privileges (submitting church data into the verification queue). `POST /api/auth/register` therefore always issues `Role.MEMBER`; there is no public path to `VOLUNTEER`. Instead, a Platform Admin generates a single-use, expiring `VolunteerInvite` code (`POST /api/admin/volunteer-invites`, `ROLE_PLATFORM_ADMIN` only) and hands it to the recruit, who redeems it via `POST /api/auth/register/volunteer` (code + email + password) to create a `User` with `Role.VOLUNTEER` directly. `/api/admin/**` requires `ROLE_PLATFORM_ADMIN`; since nothing seeds a Platform Admin otherwise, `AdminUserSeeder` creates one on startup from `ADMIN_EMAIL`/`ADMIN_PASSWORD` env vars if none exists yet — same pattern as the church `DataLoader`, but gated on "no admin exists" rather than "table is empty."
 
@@ -75,6 +77,40 @@ The volunteer field kit's `GET /r/nearest` redirect (Prompt 15) reuses this same
 **Decision: printable Angular page (CSS `@media print`), not a generated PDF.** `apps/client/src/app/pages/volunteer-field-kit` renders the flyer as an ordinary component and relies on the browser's print dialog — no PDF-rendering dependency (client or server) and the printout always matches what's shown on screen, at the cost of layout being print-engine-dependent rather than pixel-exact. QR generation uses the `qrcode` npm package (client-side, `QRCode.toDataURL`).
 
 The flow: the printed QR code encodes a link to `/go` (`NearestRedirectComponent`), which reads the *scanning device's* location via the browser Geolocation API and full-page-navigates to the server's public `GET /r/nearest?lat=&lng=` (see "Geocoding" above), which 302s to that church's profile. The redirect target is built from `app.client-base-url` (`CLIENT_BASE_URL`) rather than a relative path, since `/r/nearest` is a plain server redirect with no client-side router context to redirect within. No login is required anywhere in this path — that's the point of a tabling tool.
+
+## Group chat
+
+**Decision (Prompts 13–15): WebSocket via Spring's STOMP support**, not polling — group chat implies real-time delivery, and Spring's WebSocket support is mature enough that it isn't meaningfully more work than a polling endpoint we'd want to replace later. One chat per church (the church *is* the channel — see `Message` in DATA_MODEL.md). Membership (`Member`) is the access boundary.
+
+**Two channels, on purpose.** WebSocket is for *live delivery only*; history is an ordinary paged REST call (`GET /api/churches/{id}/messages?before=&limit=`, keyed by message-id cursor). So a client that just opened the chat, or just reconnected, backfills over HTTP and then listens live. The client re-loads the latest page on every (re)connect and merges by id, so a message that arrives both live and in that reload shows once.
+
+**Wire protocol** (`server/.../config/WebSocketConfig.java`, `controller/ChatController.java`): endpoint `/ws` (raw WebSocket at `/ws/websocket`, SockJS fallback also served at `/ws`); clients `SEND` JSON `{"body": "..."}` to `/app/churches/{id}/chat.send`, and everyone subscribed to `/topic/churches/{id}/chat` receives the persisted `MessageDto`. A message is saved (transaction committed) *before* it's broadcast, so nobody can receive something that then isn't in history. A simple in-memory broker is enough with a single server process.
+
+**Auth is at the STOMP layer, not the HTTP layer** (`security/StompAuthChannelInterceptor.java`). A browser won't attach an `Authorization` header to a WebSocket handshake, so `/ws/**` is `permitAll` in `SecurityConfig` and the real gate is the interceptor:
+- `CONNECT` must carry `Authorization: Bearer <jwt>` as a **STOMP header**; it's validated exactly like the HTTP filter does.
+- `SUBSCRIBE` is only allowed to `/topic/churches/{id}/chat`, and only if `MemberService.canAccessGroup`. Without this check any logged-in user could subscribe to any church's chat and read it.
+- `SEND` is only allowed to `/app/**`. The simple broker relays a client `SEND` to `/topic/**` to every subscriber *as-is*, skipping `ChatController` — no persistence, no membership check — so a member could otherwise forge messages into the room.
+Refusing a frame makes Spring answer with a STOMP `ERROR` frame and close the socket. `ChatFlowTest` covers each of these, and each guard was verified load-bearing by disabling it and watching the matching test fail.
+
+**Message rules** (`ChatService`): trimmed, non-empty, ≤ 2000 characters. STOMP has no per-message equivalent of an HTTP status, so a rejected message (not a member, blank, too long) is logged and dropped rather than answered; the log line carries the reason and never the message body.
+
+**Client** (`apps/client/.../services/chat.service.ts`, `pages/church-profile/church-chat.component.*`): uses `@stomp/stompjs` over the **raw WebSocket** endpoint rather than SockJS. Every supported browser has WebSocket, and skipping `sockjs-client` avoids a legacy CommonJS dependency that needs a `global` shim under the esbuild-based Angular builder — the deviation from the original prompt, which listed both. The server still serves SockJS if a fallback is ever needed. The STOMP client is built through an injection token (`STOMP_CLIENT_FACTORY`) so unit tests can swap in a fake. The dev proxy forwards `/ws` with `ws: true`.
+
+**Known limitations** (deliberate for now, not oversights):
+- *Leaving a church doesn't cut a live subscription.* Access is checked on `SUBSCRIBE` and on every `SEND`, so a member who leaves can no longer post or reconnect, but a socket they already have open keeps *receiving* until it disconnects.
+- *No rate limiting* on sending, and no edit/delete/report on messages — moderation belongs with the Vetting work (`Report`, not yet built).
+- *Single-node broker.* The in-memory simple broker only reaches clients connected to the same server process. Running more than one API instance needs an external broker (RabbitMQ/ActiveMQ via STOMP relay) first.
+- *Sender identity is a display name* (email local part). Two people with the same local part at different domains are indistinguishable in the UI, and the client's "is this mine?" styling compares by that name.
+
+## Client conventions
+
+**The Angular app is zoneless — write state as signals.** There is no `zone.js`, so Angular does *not* automatically re-render after an HTTP response or timer. A component that does `this.loading = false` on a plain field inside a `subscribe` callback is never repainted: the page spins forever, a failed login shows no error, an edit form stays empty. This was the real cause of the "infinite loading" bug on the church profile and edit pages (the API was answering fine in 50 ms). Anything assigned *asynchronously* and read by the template must be a `signal` (or a plain-looking accessor over one — see `church-profile.component.ts`). Plain fields are fine only for values changed by user events (which do schedule a render) or set synchronously before first render.
+
+The tests are zoneless too, and they can catch this — but only if they don't force a render. Specs such as `church-profile.component.spec.ts` and `auth.component.spec.ts` deliberately `await fixture.whenStable()` (Angular's own scheduled render) instead of calling `fixture.detectChanges()` after the response, and let the triggering event's render finish *before* the response arrives, as in a browser. Calling `detectChanges()` by hand would hide the bug.
+
+**Custom elements are `display: inline` by default.** Vertical margins from a parent's `space-y-*` don't apply to a child component's host element, so cards would touch. Give components that render a card `host: { class: 'block' }`.
+
+**Dev proxy rules match path *prefixes*.** `apps/client/proxy.conf.json` must say `"/r/"`, not `"/r"` — the latter also swallowed `/register` (a deep link or refresh on it got the API's 401 instead of the app). Any rule added there needs the same care.
 
 ## Database
 

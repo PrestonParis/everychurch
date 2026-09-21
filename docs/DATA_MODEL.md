@@ -22,7 +22,9 @@ This is the contract every implementation prompt is checked against. Entities ar
 | latitude, longitude | Double | *Implemented (Prompt 14)* — nullable. Client-supplied value wins if the request includes both (e.g. the scraper's Places API result); otherwise geocoded server-side from address/city/state/zipCode. A failed or unconfigured geocode (no `GOOGLE_GEOCODING_API_KEY`) leaves existing coordinates untouched rather than clearing them. |
 | serviceTimes | List\<ServiceTime\> | one-to-many, cascade + orphan removal |
 
-Owner: `server` (writes), `apps/scraper` (proposes via the `ChurchSubmission` queue — see below — never writes directly).
+Owner: `server` (writes), `apps/scraper` (proposes via the `ChurchSubmission` queue — see below — never writes directly, with one exception).
+
+**Two trust tiers for how a `Church` row comes to exist:** *reviewed* — volunteer submissions and live scraper discovery go through `ChurchSubmission` and need Platform Admin approval; *trusted bulk seed* — the one-time Kaggle import (`POST /api/scraper/bulk-import`, gated by the separate `BULK_IMPORT_API_KEY`) creates unclaimed `Church` rows directly via `ChurchService.create`, skipping review. Bulk-imported churches are still fully subject to the ordinary `Claim` workflow afterward; only initial creation skips review. See SCRAPER.md "Bulk import".
 
 ### `ServiceTime`
 `server/src/main/java/com/everychurch/server/model/ServiceTime.java`
@@ -149,25 +151,46 @@ CRUD: `GET /api/events[?churchId=]`, `GET /api/events/{id}` — public. `POST`/`
 | church | Church | many-to-one |
 | title | String | |
 | date | LocalDate | |
-| mediaUrl | String | plain string URL supplied by the caller today; object storage upload is still TBD — see ARCHITECTURE.md "Object Storage" |
+| mediaUrl | String | the S3 public URL returned by `POST .../sermons/upload-url` (`publicUrl`) after the client uploads directly to S3 — see ARCHITECTURE.md "Object Storage"; still just a plain string as far as this entity is concerned |
 
 CRUD: `GET /api/churches/{churchId}/sermons` — public. `POST`/`PUT /{sermonId}`/`DELETE /{sermonId}` — requires `MANAGE_SERMONS` on that church, or `PLATFORM_ADMIN`.
 
-## Still Planned
-
-None of the entities below have any code yet.
-
-### `Member`
-Separate from `ChurchStaff` — plain congregational membership for networking, not administrative access.
+### `Member` — *Implemented (Prompt 13)*
+`server/src/main/java/com/everychurch/server/model/Member.java`, migration `V5__add_members.sql`. Plain congregational membership — separate from `ChurchStaff`, which is administrative access. A person can be both.
 
 | Field | Type | Notes |
 |---|---|---|
 | id | Long | PK |
 | church | Church | many-to-one |
-| user | User | many-to-one |
+| user | User | many-to-one; unique together with `church` (`uq_members_church_user`) |
 | joinedAt | Instant | |
 
-CRUD: a `User` can join/leave their own membership. Member-list read is scoped — only members of the same church can list each other.
+CRUD: `POST /api/churches/{churchId}/members` (join — any authenticated user, self only; 409 if already a member), `DELETE /api/churches/{churchId}/members/me` (leave; 404 if not a member), `GET /api/churches/{churchId}/members/me` (what the caller is to this church: `{member, staff, canChat}`, used by the client to decide which buttons and panels to show), `GET /api/churches/{churchId}/members` (the list).
+
+**The access rule** (`MemberService.canAccessGroup`, the single source of truth for everything congregation-private — the member list *and* the chat): the caller is a member of that church, is on its `ChurchStaff`, or is a `PLATFORM_ADMIN`. Anyone else gets **403**, not an empty list — "not allowed" is different from "nobody here". A member of Church A can't see Church B's members.
+
+**Privacy:** `MemberDto` exposes `displayName` (the local part of the email), never the full address — the list is visible to the whole congregation and nobody needs everyone's email for networking. The same applies to chat senders.
+
+All three of `/staff`, `/members` and `/messages` under `/api/churches/{id}/` are declared `authenticated()` in `SecurityConfig` *ahead of* the public `GET /api/churches/**` rule (first match wins). Without that ordering an anonymous request slipped through the security layer and reached a controller with a null `Authentication` — a 500 rather than a 401. This was already true of the staff list before members/chat existed.
+
+### `Message` — *Implemented (Prompt 14)*
+`server/src/main/java/com/everychurch/server/model/Message.java`, migration `V6__add_messages.sql`. One chat message. There is deliberately no separate channel entity: each church has exactly one group chat, so `church_id` *is* the channel.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | Long | PK; also the paging cursor (ids grow with time) |
+| church | Church | many-to-one — the channel |
+| sender | User | many-to-one |
+| body | TEXT | trimmed; non-empty; at most 2000 characters (`ChatService.MAX_BODY_LENGTH`) |
+| sentAt | Instant | serialized as an ISO-8601 string |
+
+Indexed `(church_id, id DESC)` so both "latest N" and "N before id X" are index scans. Live delivery is over STOMP/WebSocket and history is a plain REST page — see ARCHITECTURE.md "Group chat".
+
+CRUD: no update or delete yet (see the ARCHITECTURE.md limitations — moderation belongs with the Vetting work). `GET /api/churches/{churchId}/messages?before=&limit=` returns a page oldest-first (`limit` defaults to 50, capped at 100); same access rule as the member list.
+
+## Still Planned
+
+None of the entities below have any code yet. (`Member` and `Message` used to be listed here — they're implemented above.)
 
 ### `Article`
 | Field | Type | Notes |
@@ -208,6 +231,6 @@ CRUD: create by any authenticated `User`; review by `PLATFORM_ADMIN`.
 2. ~~`Claim`, `ChurchStaff`~~ — **done.** `ChurchService.update`/`delete` now check ownership through these.
 3. ~~`ChurchImage`, `Event`, `Sermon`~~ — **done.** Built against `ChurchStaff`/`ChurchPermission` for write permissions.
 4. ~~`ChurchSubmission`~~ — **done**, including the scraper's ingestion path (`apps/scraper`'s discovery/enrichment/pipeline submits through this same table, tagged `"scraper"`).
-5. `Member` — needs `User`; independent of everything else here, still not built.
+5. ~~`Member`, `Message`~~ — **done.** Membership is the access boundary for the member list and the group chat.
 6. `Article`, `Survey`/`Question`/`Response` (Faith Formation, Prompts 19–20) — independent of church data, only need `User`.
 7. `Report` (Vetting, Prompt 23) — needs `User`, `Church`.

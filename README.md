@@ -7,9 +7,10 @@ A platform for discovering, reviewing, and managing churches. Visitors get a sta
 **For visitors:**
 - Search and browse churches with a standardized profile page — service times, location, contact info, denomination, image gallery, sermons, and multi-church events
 - Register/log in; find the nearest church by location (`GET /api/churches/nearest`) via the volunteer field kit's printable QR flyer
+- Join a church to see its member list and take part in its **group chat** (live over WebSocket; only members, staff and platform admins are let in)
 
 **For churches:**
-- Claim ownership of an unclaimed listing (reviewed and approved by a Platform Admin, not automatic)
+- Claim ownership of an unclaimed listing from its profile page (reviewed and approved by a Platform Admin in `/admin/claims`, not automatic)
 - Manage staff with fine-grained permissions (edit profile, manage sermons, manage events, manage staff) once claimed
 - Upload sermons, manage an image gallery, and co-host events with other churches
 
