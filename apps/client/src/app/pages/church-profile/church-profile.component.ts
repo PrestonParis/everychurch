@@ -1,7 +1,14 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { Church, ServiceTime } from '../../models/church.model';
+import { ChurchImage } from '../../models/church-image.model';
+import { Sermon } from '../../models/sermon.model';
+import { ChurchEvent } from '../../models/event.model';
 import { ChurchService } from '../../services/church.service';
+import { ChurchImageService } from '../../services/church-image.service';
+import { SermonService } from '../../services/sermon.service';
+import { EventService } from '../../services/event.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-church-profile',
@@ -12,10 +19,20 @@ import { ChurchService } from '../../services/church.service';
 export class ChurchProfileComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private churchService = inject(ChurchService);
+  private churchImageService = inject(ChurchImageService);
+  private sermonService = inject(SermonService);
+  private eventService = inject(EventService);
+  authService = inject(AuthService);
 
   church: Church | null = null;
   loading = true;
   error = false;
+
+  // Gallery, sermons, and events are independent of the core profile load — a
+  // failure loading any of them shouldn't block the rest of the page.
+  images = signal<ChurchImage[]>([]);
+  sermons = signal<Sermon[]>([]);
+  upcomingEvents = signal<ChurchEvent[]>([]);
 
   private readonly DAY_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -30,6 +47,42 @@ export class ChurchProfileComponent implements OnInit {
         this.error = true;
         this.loading = false;
       },
+    });
+
+    this.churchImageService.list(id).subscribe({
+      next: (images) => this.images.set([...images].sort((a, b) => a.sortOrder - b.sortOrder)),
+      error: () => this.images.set([]),
+    });
+
+    this.sermonService.list(id).subscribe({
+      next: (sermons) => this.sermons.set(sermons),
+      error: () => this.sermons.set([]),
+    });
+
+    this.eventService.list(id).subscribe({
+      next: (events) => {
+        const now = Date.now();
+        this.upcomingEvents.set(
+          events
+            .filter((e) => new Date(e.startsAt).getTime() >= now)
+            .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+        );
+      },
+      error: () => this.upcomingEvents.set([]),
+    });
+  }
+
+  isVideo(url: string): boolean {
+    return /\.(mp4|webm|mov|m4v)$/i.test(url);
+  }
+
+  formatEventDate(iso: string): string {
+    return new Date(iso).toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
     });
   }
 

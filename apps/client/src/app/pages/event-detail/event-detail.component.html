@@ -1,0 +1,74 @@
+@if (loading()) {
+  <div class="flex justify-center items-center min-h-screen bg-slate-50">
+    <div class="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+  </div>
+} @else if (error() || !event) {
+  <div class="flex flex-col items-center justify-center min-h-screen bg-slate-50 text-center px-4">
+    <p class="text-slate-500 text-lg mb-4">Event not found.</p>
+    <a routerLink="/events" class="text-indigo-600 font-medium hover:underline">← Back to events</a>
+  </div>
+} @else {
+  <div class="min-h-screen bg-slate-50">
+    <div class="bg-white border-b border-slate-200">
+      <div class="max-w-3xl mx-auto px-6 py-8">
+        <a routerLink="/events"
+           class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 mb-6 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+          </svg>
+          All events
+        </a>
+
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 class="text-3xl font-bold text-slate-900">{{ event.title }}</h1>
+            <p class="text-sm font-semibold text-indigo-600 mt-2">{{ formatDate(event.startsAt) }}</p>
+          </div>
+
+          @if (authService.isAuthenticated()) {
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <a [routerLink]="['/events', event.id, 'edit']"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition-colors">
+                Edit
+              </a>
+              <button type="button" (click)="deleteEvent()" [disabled]="deleting()"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium transition-colors disabled:opacity-50">
+                Delete
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-3xl mx-auto px-6 py-8 space-y-6">
+      @if (event.description) {
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">About</h2>
+          <p class="text-slate-700 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
+        </div>
+      }
+
+      <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
+          {{ churches().length > 1 ? 'Co-Hosting Churches' : 'Hosted By' }}
+        </h2>
+        @if (churches().length === 0) {
+          <p class="text-sm text-slate-400">No church information available.</p>
+        } @else {
+          <div class="space-y-3">
+            @for (church of churches(); track church.id) {
+              <a [routerLink]="['/churches', church.id]"
+                class="flex items-center gap-3 text-sm text-slate-700 hover:text-indigo-600 transition-colors">
+                <div class="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs flex-shrink-0">
+                  {{ church.name[0] }}
+                </div>
+                {{ church.name }}
+              </a>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

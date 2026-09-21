@@ -15,6 +15,35 @@
         </svg>
         Add Church
       </a>
+
+      @if (authService.currentUser()?.role === 'PLATFORM_ADMIN') {
+        <div class="relative group hidden sm:block">
+          <button class="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+            Admin
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="absolute right-0 top-full pt-2 hidden group-hover:block">
+            <div class="w-52 py-1 rounded-xl bg-white ring-1 ring-slate-200 shadow-lg">
+              <a routerLink="/admin/volunteer-invites" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Volunteer invites</a>
+              <a routerLink="/admin/submissions" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Church submissions</a>
+              <a routerLink="/admin/scraper-runs" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Scraper runs</a>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (authService.isAuthenticated()) {
+        <span class="text-sm text-slate-500 hidden sm:block">{{ authService.currentUser()?.email }}</span>
+        <button (click)="logout()" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+          Log out
+        </button>
+      } @else {
+        <a routerLink="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+          Log in
+        </a>
+      }
     </div>
   </div>
 </nav>

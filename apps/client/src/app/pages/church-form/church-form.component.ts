@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { FormArray, FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Church, ServiceTime } from '../../models/church.model';
+import { Church, DENOMINATIONS, ServiceTime } from '../../models/church.model';
 import { ChurchService } from '../../services/church.service';
 
 @Component({
@@ -45,21 +45,7 @@ export class ChurchFormComponent implements OnInit {
   loading = false;
   saving = false;
 
-  readonly DENOMINATIONS = [
-    'Baptist',
-    'Catholic',
-    'Church of Christ',
-    'Eastern Orthodox',
-    'Episcopal/Anglican',
-    'Evangelical',
-    'Lutheran',
-    'Methodist',
-    'Non-denominational',
-    'Pentecostal / Assembly of God',
-    'Presbyterian',
-    'Seventh-day Adventist',
-    'Other',
-  ];
+  readonly DENOMINATIONS = DENOMINATIONS;
 
   readonly DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

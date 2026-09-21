@@ -59,14 +59,30 @@
               </div>
             </div>
 
-            <!-- Edit button -->
-            <a [routerLink]="['/churches', church.id, 'edit']"
-               class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-              </svg>
-              Edit
-            </a>
+            <!-- Edit + management links -->
+            <div class="flex-shrink-0 flex items-center gap-2 flex-wrap justify-end">
+              <a [routerLink]="['/churches', church.id, 'edit']"
+                 class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Edit
+              </a>
+              @if (authService.isAuthenticated()) {
+                <a [routerLink]="['/churches', church.id, 'images']"
+                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                  Photos
+                </a>
+                <a [routerLink]="['/churches', church.id, 'sermons']"
+                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                  Sermons
+                </a>
+                <a [routerLink]="['/events/new']" [queryParams]="{ churchId: church.id }"
+                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                  + Event
+                </a>
+              }
+            </div>
           </div>
 
           @if (church.description) {
@@ -137,6 +153,19 @@
         <!-- Left (2/3) -->
         <div class="lg:col-span-2 space-y-6">
 
+          <!-- Photos -->
+          @if (images().length > 0) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Photos</h2>
+              <div class="flex gap-3 overflow-x-auto pb-1">
+                @for (image of images(); track image.id) {
+                  <img [src]="image.url" alt=""
+                    class="h-40 w-56 flex-shrink-0 rounded-xl object-cover ring-1 ring-slate-200"/>
+                }
+              </div>
+            </div>
+          }
+
           <!-- About -->
           @if (church.description) {
             <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
@@ -182,6 +211,30 @@
                   <p class="font-semibold text-slate-900">{{ church.pastor }}</p>
                   <p class="text-sm text-slate-500">Lead Pastor</p>
                 </div>
+              </div>
+            </div>
+          }
+
+          <!-- Sermons -->
+          @if (sermons().length > 0) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-5">Sermons</h2>
+              <div class="space-y-5">
+                @for (sermon of sermons(); track sermon.id) {
+                  <div>
+                    <div class="flex items-baseline justify-between gap-4 mb-2">
+                      <p class="text-sm font-semibold text-slate-900">{{ sermon.title }}</p>
+                      <p class="text-xs text-slate-400 flex-shrink-0">{{ sermon.date }}</p>
+                    </div>
+                    @if (sermon.mediaUrl) {
+                      @if (isVideo(sermon.mediaUrl)) {
+                        <video [src]="sermon.mediaUrl" controls class="w-full rounded-xl bg-slate-900"></video>
+                      } @else {
+                        <audio [src]="sermon.mediaUrl" controls class="w-full"></audio>
+                      }
+                    }
+                  </div>
+                }
               </div>
             </div>
           }
@@ -248,6 +301,21 @@
                   </a>
                 }
 
+              </div>
+            </div>
+          }
+
+          <!-- Upcoming Events -->
+          @if (upcomingEvents().length > 0) {
+            <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+              <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Upcoming Events</h2>
+              <div class="space-y-4">
+                @for (event of upcomingEvents(); track event.id) {
+                  <a [routerLink]="['/events', event.id]" class="block group">
+                    <p class="text-sm font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{{ event.title }}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">{{ formatEventDate(event.startsAt) }}</p>
+                  </a>
+                }
               </div>
             </div>
           }

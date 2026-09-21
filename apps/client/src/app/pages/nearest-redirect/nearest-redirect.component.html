@@ -1,0 +1,17 @@
+<div class="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+  <div class="max-w-sm w-full text-center">
+    @if (status() === 'locating') {
+      <p class="text-slate-600 font-medium">Finding the nearest church…</p>
+      <p class="text-sm text-slate-400 mt-2">Allow location access when prompted.</p>
+    } @else {
+      <p class="text-red-600 font-medium">{{ errorMessage() }}</p>
+      <button (click)="locate()"
+              class="mt-4 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+        Try again
+      </button>
+      <p class="text-sm text-slate-400 mt-4">
+        Or <a routerLink="/churches" class="text-indigo-600 hover:underline">browse all churches</a> instead.
+      </p>
+    }
+  </div>
+</div>

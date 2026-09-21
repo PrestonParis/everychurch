@@ -6,16 +6,87 @@
       <h1 class="text-3xl font-bold text-slate-900 mb-1">Church Directory</h1>
       <p class="text-slate-500 text-sm mb-8">Find a church near you</p>
 
-      <div class="relative max-w-lg">
-        <svg class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-        </svg>
-        <input
-          [(ngModel)]="query"
-          (ngModelChange)="onSearch()"
-          placeholder="Search by name, denomination, or city…"
-          class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-        />
+      <div class="max-w-2xl space-y-3">
+        <!-- Primary search -->
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <svg class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <input
+              [(ngModel)]="query"
+              (ngModelChange)="onFiltersChanged()"
+              placeholder="Search by name or city…"
+              class="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          <button
+            type="button"
+            (click)="toggleFilters()"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-xl border text-sm font-medium transition-colors"
+            [class]="filtersOpen() ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+            </svg>
+            Filters
+          </button>
+
+          <button
+            type="button"
+            (click)="nearMeActive() ? clearNearMe() : nearMe()"
+            [disabled]="locating()"
+            class="flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-3 rounded-xl border text-sm font-medium transition-colors disabled:opacity-60"
+            [class]="nearMeActive() ? 'border-indigo-300 bg-indigo-50 text-indigo-700' : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            @if (locating()) {
+              Locating…
+            } @else if (nearMeActive()) {
+              Near me ✕
+            } @else {
+              Near me
+            }
+          </button>
+        </div>
+
+        @if (locateError()) {
+          <p class="text-xs text-red-600">{{ locateError() }}</p>
+        }
+
+        <!-- Secondary filters -->
+        @if (filtersOpen()) {
+          <div class="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <select
+              [(ngModel)]="denomination"
+              (ngModelChange)="onFiltersChanged()"
+              class="px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Any denomination</option>
+              @for (d of DENOMINATIONS; track d) {
+                <option [value]="d">{{ d }}</option>
+              }
+            </select>
+
+            <input
+              [(ngModel)]="city"
+              (ngModelChange)="onFiltersChanged()"
+              placeholder="City"
+              class="w-32 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+
+            <input
+              [(ngModel)]="state"
+              (ngModelChange)="onFiltersChanged()"
+              placeholder="State"
+              class="w-24 px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        }
       </div>
     </div>
   </div>
@@ -23,26 +94,30 @@
   <!-- Content -->
   <div class="max-w-6xl mx-auto px-6 py-10">
 
-    @if (loading) {
+    @if (loading()) {
       <div class="flex justify-center py-24">
         <div class="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
       </div>
-    } @else if (error) {
+    } @else if (error()) {
       <div class="text-center py-24">
         <p class="text-slate-500">Could not connect to the server. Make sure the API is running.</p>
       </div>
-    } @else if (filtered.length === 0) {
+    } @else if (results().length === 0) {
       <div class="text-center py-24">
         <p class="text-slate-500 text-lg mb-4">No churches found.</p>
         <a routerLink="/churches/new" class="text-indigo-600 text-sm font-medium hover:underline">Add the first one →</a>
       </div>
     } @else {
       <p class="text-xs font-medium text-slate-400 uppercase tracking-widest mb-6">
-        {{ filtered.length }} church{{ filtered.length !== 1 ? 'es' : '' }}
+        @if (nearMeActive()) {
+          {{ results().length }} closest church{{ results().length !== 1 ? 'es' : '' }}
+        } @else {
+          {{ totalElements() }} church{{ totalElements() !== 1 ? 'es' : '' }}
+        }
       </p>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        @for (church of filtered; track church.id) {
+        @for (church of results(); track church.id) {
           <a [routerLink]="['/churches', church.id]"
              class="group bg-white rounded-2xl ring-1 ring-slate-200 hover:ring-indigo-300 hover:shadow-md transition-all duration-150 p-6 flex flex-col">
 
@@ -87,6 +162,15 @@
           </a>
         }
       </div>
+
+      @if (!nearMeActive()) {
+        <!-- Infinite-scroll trigger + inline "load more" spinner -->
+        <div #sentinel class="flex justify-center py-10">
+          @if (loadingMore()) {
+            <div class="w-6 h-6 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+          }
+        </div>
+      }
     }
   </div>
 </div>

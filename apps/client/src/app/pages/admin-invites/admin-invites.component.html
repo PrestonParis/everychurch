@@ -1,0 +1,42 @@
+<div class="min-h-screen bg-slate-50">
+  <div class="max-w-3xl mx-auto px-6 py-10">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-2xl font-bold text-slate-900">Volunteer invites</h1>
+      <button (click)="generate()" [disabled]="generating()"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+        {{ generating() ? 'Generating…' : 'Generate invite' }}
+      </button>
+    </div>
+
+    @if (error()) {
+      <p class="text-sm text-red-600 mb-4">{{ error() }}</p>
+    }
+
+    @if (loading()) {
+      <p class="text-sm text-slate-500">Loading…</p>
+    } @else if (invites().length === 0) {
+      <p class="text-sm text-slate-500">No invites yet.</p>
+    } @else {
+      <div class="bg-white rounded-2xl ring-1 ring-slate-200 overflow-hidden">
+        <div class="divide-y divide-slate-100">
+          @for (invite of invites(); track invite.id) {
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+              <div>
+                <span class="font-mono text-sm font-semibold text-slate-900 tracking-widest">{{ invite.code }}</span>
+                <span class="ml-3 text-xs font-medium px-2 py-0.5 rounded-full"
+                      [class]="invite.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : invite.status === 'REDEEMED' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                  {{ invite.status }}
+                </span>
+              </div>
+              @if (invite.status === 'PENDING') {
+                <button (click)="revoke(invite.id)" class="text-sm font-medium text-red-600 hover:text-red-700 transition-colors">
+                  Revoke
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

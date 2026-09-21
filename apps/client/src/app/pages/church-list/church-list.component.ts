@@ -1,8 +1,11 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Church } from '../../models/church.model';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Church, DENOMINATIONS } from '../../models/church.model';
 import { ChurchService } from '../../services/church.service';
+
+const PAGE_SIZE = 20;
 
 @Component({
   selector: 'app-church-list',
@@ -10,40 +13,148 @@ import { ChurchService } from '../../services/church.service';
   imports: [RouterModule, FormsModule],
   templateUrl: './church-list.component.html',
 })
-export class ChurchListComponent implements OnInit {
+export class ChurchListComponent implements AfterViewInit, OnDestroy {
   private churchService = inject(ChurchService);
 
-  churches: Church[] = [];
-  filtered: Church[] = [];
-  query = '';
-  loading = true;
-  error = false;
+  @ViewChild('sentinel') sentinel?: ElementRef<HTMLElement>;
+  private observer?: IntersectionObserver;
 
-  ngOnInit() {
-    this.churchService.getAll().subscribe({
-      next: (data) => {
-        this.churches = data;
-        this.filtered = data;
-        this.loading = false;
-      },
-      error: () => {
-        this.error = true;
-        this.loading = false;
-      },
-    });
+  readonly DENOMINATIONS = DENOMINATIONS;
+
+  results = signal<Church[]>([]);
+  page = signal(0);
+  totalPages = signal(0);
+  totalElements = signal(0);
+
+  loading = signal(true); // full-page: first load of a fresh query
+  loadingMore = signal(false); // inline: appending another page
+  error = signal(false);
+  filtersOpen = signal(false);
+  nearMeActive = signal(false);
+  locating = signal(false);
+  locateError = signal('');
+
+  query = '';
+  denomination = '';
+  city = '';
+  state = '';
+
+  private filtersChanged = new Subject<string>();
+  private nearMeCoords: { lat: number; lng: number } | null = null;
+
+  constructor() {
+    this.filtersChanged.pipe(debounceTime(300), distinctUntilChanged()).subscribe(() => this.runSearch(true));
+    this.runSearch(true);
   }
 
-  onSearch() {
-    const q = this.query.toLowerCase();
-    this.filtered = q
-      ? this.churches.filter(
-          (c) =>
-            c.name.toLowerCase().includes(q) ||
-            c.denomination?.toLowerCase().includes(q) ||
-            c.city?.toLowerCase().includes(q) ||
-            c.state?.toLowerCase().includes(q)
-        )
-      : this.churches;
+  ngAfterViewInit() {
+    if (!this.sentinel) return;
+    this.observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) this.loadMore();
+    });
+    this.observer.observe(this.sentinel.nativeElement);
+  }
+
+  ngOnDestroy() {
+    this.observer?.disconnect();
+  }
+
+  /** Any text/filter change funnels through here, debounced, and always resets to page 0. */
+  onFiltersChanged() {
+    this.nearMeActive.set(false);
+    this.filtersChanged.next(JSON.stringify([this.query, this.denomination, this.city, this.state]));
+  }
+
+  private runSearch(reset: boolean) {
+    const nextPage = reset ? 0 : this.page() + 1;
+
+    if (reset) {
+      this.loading.set(true);
+      this.error.set(false);
+    } else {
+      this.loadingMore.set(true);
+    }
+
+    this.churchService
+      .search({
+        query: this.query.trim() || undefined,
+        denomination: this.denomination || undefined,
+        city: this.city.trim() || undefined,
+        state: this.state.trim() || undefined,
+        page: nextPage,
+        size: PAGE_SIZE,
+      })
+      .subscribe({
+        next: (result) => {
+          this.results.set(reset ? result.content : [...this.results(), ...result.content]);
+          this.page.set(result.number);
+          this.totalPages.set(result.totalPages);
+          this.totalElements.set(result.totalElements);
+          this.loading.set(false);
+          this.loadingMore.set(false);
+        },
+        error: () => {
+          this.error.set(true);
+          this.loading.set(false);
+          this.loadingMore.set(false);
+        },
+      });
+  }
+
+  loadMore() {
+    if (this.loading() || this.loadingMore() || this.nearMeActive()) return;
+    if (this.page() + 1 >= this.totalPages()) return;
+    this.runSearch(false);
+  }
+
+  nearMe() {
+    if (!('geolocation' in navigator)) {
+      this.locateError.set('This browser does not support location services.');
+      return;
+    }
+
+    this.locating.set(true);
+    this.locateError.set('');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        this.nearMeCoords = { lat: latitude, lng: longitude };
+        this.locating.set(false);
+        this.nearMeActive.set(true);
+        this.loading.set(true);
+        this.error.set(false);
+
+        this.churchService.nearest(latitude, longitude).subscribe({
+          next: (churches) => {
+            this.results.set(churches);
+            this.page.set(0);
+            this.totalPages.set(1);
+            this.totalElements.set(churches.length);
+            this.loading.set(false);
+          },
+          error: () => {
+            this.error.set(true);
+            this.loading.set(false);
+          },
+        });
+      },
+      () => {
+        this.locating.set(false);
+        this.locateError.set('Location access was denied. Enable location for this site and try again.');
+      },
+      { timeout: 10_000 }
+    );
+  }
+
+  clearNearMe() {
+    this.nearMeActive.set(false);
+    this.nearMeCoords = null;
+    this.runSearch(true);
+  }
+
+  toggleFilters() {
+    this.filtersOpen.set(!this.filtersOpen());
   }
 
   initials(name: string): string {
