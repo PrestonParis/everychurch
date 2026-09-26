@@ -73,8 +73,9 @@ export class ChurchChatComponent implements OnInit, OnDestroy {
     this.connection()?.close();
   }
 
+  /** Must match what the server puts in MessageDto.senderDisplayName, or "is this mine?" styling breaks. */
   get myName(): string {
-    return (this.authService.currentUser()?.email ?? '').split('@')[0];
+    return this.authService.currentUser()?.displayName ?? '';
   }
 
   private loadLatest() {

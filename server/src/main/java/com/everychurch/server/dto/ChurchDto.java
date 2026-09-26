@@ -22,5 +22,6 @@ public record ChurchDto(
     Boolean claimed,
     Double latitude,
     Double longitude,
+    String serviceSummary,
     List<ServiceTimeDto> serviceTimes
 ) {}

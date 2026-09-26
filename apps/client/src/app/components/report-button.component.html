@@ -1,0 +1,22 @@
+@if (submitted()) {
+  <span class="text-xs text-ink-muted">Reported — thanks for letting us know.</span>
+} @else if (!open()) {
+  <button type="button" (click)="toggle()" class="text-xs text-ink-muted hover:text-red-700 transition-colors">
+    Report
+  </button>
+} @else {
+  <div class="flex items-center gap-2">
+    <input [(ngModel)]="reason" type="text" placeholder="Why are you reporting this?"
+           class="px-2 py-1 rounded-lg border border-hairline bg-surface text-xs text-ink w-48 focus:outline-none focus:ring-2 focus:ring-gold" />
+    <button type="button" (click)="submit()" [disabled]="!reason.trim() || submitting()"
+            class="text-xs font-semibold text-red-700 hover:text-red-800 disabled:opacity-50 transition-colors">
+      {{ submitting() ? 'Sending…' : 'Send' }}
+    </button>
+    <button type="button" (click)="open.set(false)" class="text-xs text-ink-muted hover:text-ink transition-colors">
+      Cancel
+    </button>
+  </div>
+  @if (error()) {
+    <p class="text-xs text-red-700 mt-1">{{ error() }}</p>
+  }
+}

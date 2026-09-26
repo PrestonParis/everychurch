@@ -7,6 +7,7 @@ from .config import ScraperConfig
 from .dedup import filter_new
 from .discovery import discover_churches
 from .enrichment import enrich_from_website
+from .existing_churches import fetch_all_existing_churches
 from .places_client import PlacesClient
 from .regions import STATE_BOUNDING_BOXES, bounding_box
 from .run_tracker import ScraperRunClient
@@ -52,7 +53,7 @@ def run(
 
         discovered = list(discover_churches(places_client, config.search_radius_m, tiles=tiles))
 
-        existing = _fetch_existing_churches(config.server_base_url, session)
+        existing = fetch_all_existing_churches(config.server_base_url, session)
         new_churches = filter_new(discovered, existing)
 
         submissions = [_build_submission(church, places_client, session) for church in new_churches]
@@ -105,12 +106,6 @@ def _to_church_dto_shape(payload: dict) -> dict:
         "latitude": payload.get("lat"),
         "longitude": payload.get("lon"),
     }
-
-
-def _fetch_existing_churches(base_url: str, session: requests.Session) -> list:
-    response = session.get(f"{base_url.rstrip('/')}/api/churches", timeout=30)
-    response.raise_for_status()
-    return response.json()
 
 
 def lambda_handler(event, context) -> dict:

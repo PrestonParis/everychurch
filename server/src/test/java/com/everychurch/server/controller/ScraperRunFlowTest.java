@@ -37,7 +37,7 @@ class ScraperRunFlowTest extends AbstractIntegrationTest {
     private String memberToken() throws Exception {
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
-                .content("{\"email\":\"scraperrun-member-" + java.util.UUID.randomUUID() + "@example.com\",\"password\":\"password123\"}"))
+                .content("{\"email\":\"scraperrun-member-" + java.util.UUID.randomUUID() + "@example.com\",\"password\":\"password123\",\"displayName\":\"Test User\"}"))
             .andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("token").asText();

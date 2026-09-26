@@ -7,8 +7,11 @@ const STORAGE_KEY = 'ec_session';
 
 interface StoredSession {
   token: string;
+  id: number;
   email: string;
   role: Role;
+  displayName: string;
+  avatarUrl?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -28,9 +31,9 @@ export class AuthService {
     return this.session()?.token ?? null;
   }
 
-  register(email: string, password: string): Observable<AuthResponse> {
+  register(email: string, password: string, displayName: string): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>(`${this.base}/register`, { email, password })
+      .post<AuthResponse>(`${this.base}/register`, { email, password, displayName })
       .pipe(tap((res) => this.storeSession(res)));
   }
 
@@ -40,10 +43,21 @@ export class AuthService {
       .pipe(tap((res) => this.storeSession(res)));
   }
 
-  registerVolunteer(code: string, email: string, password: string): Observable<AuthResponse> {
+  registerVolunteer(code: string, email: string, password: string, displayName: string): Observable<AuthResponse> {
     return this.http
-      .post<AuthResponse>(`${this.base}/register/volunteer`, { code, email, password })
+      .post<AuthResponse>(`${this.base}/register/volunteer`, { code, email, password, displayName })
       .pipe(tap((res) => this.storeSession(res)));
+  }
+
+  // Always resolves (the server returns 200 regardless of whether the email has an
+  // account, to avoid leaking which emails are registered) — the UI shows one generic
+  // message either way, see ForgotPasswordComponent.
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/forgot-password`, { email });
+  }
+
+  resetPassword(token: string, newPassword: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/reset-password`, { token, newPassword });
   }
 
   logout(): void {
@@ -55,8 +69,25 @@ export class AuthService {
     }
   }
 
+  /** Merges a display-name/avatar change into the cached session so the nav and any
+   *  other reader of `currentUser()` update immediately — there's no `/api/auth/me`
+   *  to refetch from, so the account page pushes the result here after a save. */
+  updateProfile(patch: Partial<Pick<StoredSession, 'displayName' | 'avatarUrl'>>): void {
+    const current = this.session();
+    if (!current) return;
+    const updated: StoredSession = { ...current, ...patch };
+    this.session.set(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {
+      // localStorage unavailable — still works for the rest of this tab's lifetime
+    }
+  }
+
   private storeSession(res: AuthResponse): void {
-    const session: StoredSession = { token: res.token, email: res.email, role: res.role };
+    const session: StoredSession = {
+      token: res.token, id: res.id, email: res.email, role: res.role, displayName: res.displayName, avatarUrl: res.avatarUrl,
+    };
     this.session.set(session);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));

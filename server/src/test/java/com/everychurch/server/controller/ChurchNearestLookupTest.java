@@ -38,7 +38,7 @@ class ChurchNearestLookupTest extends AbstractIntegrationTest {
 
     private String authToken() throws Exception {
         RegisterRequest request = new RegisterRequest(
-            "nearest-fixture-" + userCounter.incrementAndGet() + "@example.com", "password123");
+            "nearest-fixture-" + userCounter.incrementAndGet() + "@example.com", "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))

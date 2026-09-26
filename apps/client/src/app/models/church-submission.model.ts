@@ -12,4 +12,6 @@ export interface ChurchSubmission {
   reviewedByEmail?: string | null;
   createdAt: string;
   reviewedAt?: string | null;
+  /** Possible name/location matches among existing churches — empty once the submission is decided. */
+  possibleDuplicates?: Church[];
 }

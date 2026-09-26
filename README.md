@@ -82,6 +82,8 @@ npx nx test scraper      # Python tests via pytest
 
 ## Docs
 
+- [Learn and denomination matching](docs/FAITH_MATCHING.md) — quiz, confirmed church beliefs, private results, and editorial release gates
+
 - [Commands reference](docs/COMMANDS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Data model](docs/DATA_MODEL.md)

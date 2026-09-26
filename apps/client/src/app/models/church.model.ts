@@ -13,6 +13,7 @@ export const DENOMINATIONS = [
   'Eastern Orthodox',
   'Episcopal/Anglican',
   'Evangelical',
+  'Latter-day Saint (LDS)',
   'Lutheran',
   'Methodist',
   'Non-denominational',
@@ -51,5 +52,7 @@ export interface Church {
   claimed?: boolean;
   latitude?: number;
   longitude?: number;
+  /** Cheap denormalized summary (e.g. "Sundays 9:00 AM & 11:00 AM +1 more") — see server ChurchService.buildServiceSummary. Present on every response; serviceTimes itself is only ever populated on GET /api/churches/{id}. */
+  serviceSummary?: string;
   serviceTimes?: ServiceTime[];
 }

@@ -24,7 +24,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void registerThenLogin_succeeds() throws Exception {
-        RegisterRequest register = new RegisterRequest("jane@example.com", "s3cret-password");
+        RegisterRequest register = new RegisterRequest("jane@example.com", "s3cret-password", "Test User");
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
@@ -45,7 +45,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void registerDuplicateEmail_conflict() throws Exception {
-        RegisterRequest register = new RegisterRequest("dup@example.com", "password123");
+        RegisterRequest register = new RegisterRequest("dup@example.com", "password123", "Test User");
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
@@ -60,7 +60,7 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     @Test
     void loginWrongPassword_unauthorized() throws Exception {
-        RegisterRequest register = new RegisterRequest("wrongpw@example.com", "correct-password");
+        RegisterRequest register = new RegisterRequest("wrongpw@example.com", "correct-password", "Test User");
 
         mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")

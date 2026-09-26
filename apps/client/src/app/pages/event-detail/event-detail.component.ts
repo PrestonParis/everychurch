@@ -1,12 +1,10 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
-import { ChurchEvent } from '../../models/event.model';
-import { Church } from '../../models/church.model';
+import { ChurchEvent, ChurchRef } from '../../models/event.model';
 import { EventService } from '../../services/event.service';
-import { ChurchService } from '../../services/church.service';
 import { AuthService } from '../../services/auth.service';
+import { ChurchStaffService } from '../../services/church-staff.service';
+import { ChurchStaffSummary } from '../../models/church-staff.model';
 
 @Component({
   selector: 'app-event-detail',
@@ -18,42 +16,81 @@ export class EventDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private eventService = inject(EventService);
-  private churchService = inject(ChurchService);
+  private churchStaffService = inject(ChurchStaffService);
   authService = inject(AuthService);
 
   // Signal-backed (zoneless app: a plain field set in an HTTP callback doesn't repaint).
   private readonly _event = signal<ChurchEvent | null>(null);
   get event(): ChurchEvent | null { return this._event(); }
-  churches = signal<Church[]>([]);
   loading = signal(true);
   error = signal(false);
   deleting = signal(false);
+
+  private myStaffChurches = signal<ChurchStaffSummary[] | null>(null);
+  respondingChurchId = signal<number | null>(null);
+
+  private get managedChurchIds(): Set<number> {
+    const summaries = this.myStaffChurches();
+    if (!summaries) return new Set();
+    return new Set(summaries.filter((s) => s.permissions.includes('MANAGE_EVENTS')).map((s) => s.churchId));
+  }
+
+  // Edit/Delete only for someone who could actually manage at least one of THIS
+  // event's CONFIRMED churches — not just any church anywhere (a staff member of
+  // Church A has no business editing Church B's event), and specifically not a
+  // church that's only PENDING (its staff haven't agreed to co-host yet, so they
+  // shouldn't be able to edit/delete the event before even responding to the
+  // invitation) — mirrors EventService.requireManagesAtLeastOne/confirmedChurches.
+  get canManage(): boolean {
+    if (this.authService.currentUser()?.role === 'PLATFORM_ADMIN') return true;
+    const event = this.event;
+    if (!event) return false;
+    const confirmedIds = (event.churches ?? []).map((c) => c.id);
+    return confirmedIds.some((id) => this.managedChurchIds.has(id));
+  }
+
+  // Pending co-host invitations the current viewer can actually respond to — their
+  // own church's MANAGE_EVENTS, or Platform Admin. Never offer a respond control for
+  // a church the viewer doesn't manage.
+  get respondablePendingChurches(): ChurchRef[] {
+    const event = this.event;
+    if (!event) return [];
+    const isAdmin = this.authService.currentUser()?.role === 'PLATFORM_ADMIN';
+    return (event.pendingChurches ?? []).filter((c) => isAdmin || this.managedChurchIds.has(c.id));
+  }
+
+  respondToCoHost(churchId: number, accept: boolean) {
+    if (!this.event?.id || this.respondingChurchId() !== null) return;
+    this.respondingChurchId.set(churchId);
+    const obs = accept ? this.eventService.acceptCoHost(this.event.id, churchId) : this.eventService.declineCoHost(this.event.id, churchId);
+    obs.subscribe({
+      next: (updated) => {
+        this._event.set(updated);
+        this.respondingChurchId.set(null);
+      },
+      error: () => this.respondingChurchId.set(null),
+    });
+  }
 
   ngOnInit() {
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.eventService.get(id).subscribe({
       next: (event) => {
         this._event.set(event);
-        this.loadChurches(event.churchIds);
+        this.loading.set(false);
       },
       error: () => {
         this.error.set(true);
         this.loading.set(false);
       },
     });
-  }
 
-  private loadChurches(churchIds: number[]) {
-    if (churchIds.length === 0) {
-      this.loading.set(false);
-      return;
+    if (this.authService.isAuthenticated()) {
+      this.churchStaffService.myStaffChurches().subscribe({
+        next: (summaries) => this.myStaffChurches.set(summaries),
+        error: () => this.myStaffChurches.set([]),
+      });
     }
-    forkJoin(churchIds.map((id) => this.churchService.getById(id).pipe(catchError(() => of(null))))).subscribe(
-      (churches) => {
-        this.churches.set(churches.filter((c): c is Church => c !== null));
-        this.loading.set(false);
-      }
-    );
   }
 
   formatDate(iso: string): string {

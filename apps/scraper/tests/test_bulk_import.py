@@ -8,6 +8,8 @@ from scraper.bulk_import import (
     BULK_IMPORT_ENDPOINT,
     BULK_IMPORT_HEADER,
     _clean,
+    _denomination_for_row,
+    _normalize_denomination,
     _zip_code,
     dedupe_within_batch,
     download_dataset,
@@ -99,6 +101,84 @@ def test_zip_code_returns_none_for_missing_zip():
     assert _zip_code({"zip": float("nan")}) is None
 
 
+# --- _normalize_denomination ----------------------------------------------------
+# Mirrors V8__normalize_denominations_and_case_insensitive_filters.sql's backfill —
+# the dataset's raw `denom` codes were passed straight through in the initial
+# Prompt 7 pass, which left the site's denomination filter matching almost nothing
+# against the real import.
+
+def test_normalize_denomination_maps_known_codes_to_the_site_taxonomy():
+    assert _normalize_denomination("PCUSA") == "Presbyterian"
+    assert _normalize_denomination("BAPT") == "Baptist"
+    assert _normalize_denomination("LDS") == "Latter-day Saint (LDS)"
+    assert _normalize_denomination("COC") == "Church of Christ"
+
+
+def test_normalize_denomination_is_case_insensitive_on_the_code():
+    assert _normalize_denomination("pcusa") == "Presbyterian"
+
+
+def test_normalize_denomination_clears_the_unknown_sentinel():
+    assert _normalize_denomination("UNK") is None
+
+
+def test_normalize_denomination_passes_through_unmapped_and_none_values():
+    assert _normalize_denomination("Catholic") == "Catholic"
+    assert _normalize_denomination(None) is None
+
+
+# --- _denomination_for_row -------------------------------------------------------
+# The dataset flags Catholic/Orthodox parishes via `cath="Y"`, not `denom` (`denom` is
+# "NOT AVAILABLE" for virtually every one of them) — a gap found after the real 42k-row
+# bulk import left Catholic churches with a null denomination almost everywhere.
+
+def test_denomination_for_row_maps_a_cath_flagged_row_to_catholic():
+    row = {"cath": "Y", "name": "Saint James Roman Catholic Church", "denom": "NOT AVAILABLE"}
+    assert _denomination_for_row(row) == "Catholic"
+
+
+def test_denomination_for_row_detects_eastern_orthodox_by_name_when_cath_flagged():
+    row = {"cath": "Y", "name": "Holy Trinity Orthodox Church", "denom": "NOT AVAILABLE"}
+    assert _denomination_for_row(row) == "Eastern Orthodox"
+
+
+def test_denomination_for_row_does_not_treat_orthodox_presbyterian_as_orthodox():
+    # prot="Y"/cath="N" in the real dataset for these — genuinely Presbyterian, not
+    # Eastern Orthodox, so they must fall through to the ordinary denom-code mapping.
+    row = {"cath": "N", "name": "Covenant Orthodox Presbyterian Church", "denom": "PCA"}
+    assert _denomination_for_row(row) == "Presbyterian"
+
+
+def test_denomination_for_row_falls_back_to_denom_code_when_not_cath_flagged():
+    row = {"cath": "N", "name": "Fremont Presbyterian Church", "denom": "PCUSA"}
+    assert _denomination_for_row(row) == "Presbyterian"
+
+
+def test_denomination_for_row_handles_a_missing_cath_column():
+    row = {"name": "Fremont Presbyterian Church", "denom": "PCUSA"}
+    assert _denomination_for_row(row) == "Presbyterian"
+
+
+def test_to_church_dto_shape_maps_a_cath_flagged_row_to_catholic():
+    row = {
+        "name": "Saint James Roman Catholic Church",
+        "denom": "NOT AVAILABLE",
+        "cath": "Y",
+        "address": "1 Cathedral Way",
+        "city": "Sacramento",
+        "state": "CA",
+        "zip": 95814,
+        "telephone": "916-555-0100",
+        "x": -121.5,
+        "y": 38.58,
+        "subtype": "CHRISTIAN",
+    }
+
+    result = to_church_dto_shape(row)
+
+    assert result["denomination"] == "Catholic"
+
+
 def test_to_church_dto_shape_maps_the_real_dataset_columns():
     row = {
         "name": "Fremont Presbyterian Church",
@@ -118,7 +198,7 @@ def test_to_church_dto_shape_maps_the_real_dataset_columns():
 
     assert result == {
         "name": "Fremont Presbyterian Church",
-        "denomination": "PCUSA",
+        "denomination": "Presbyterian",
         "address": "5770 Carlson Drive",
         "city": "Sacramento",
         "state": "CA",

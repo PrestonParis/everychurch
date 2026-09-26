@@ -20,6 +20,11 @@ import requests
 
 from .config import BulkImportConfig
 from .dedup import _normalize_key, existing_keys
+# Re-exported (fetch_all_existing_churches, DEFAULT_PAGE_SIZE) so `from scraper.bulk_import
+# import fetch_all_existing_churches` keeps working — this module used to define it
+# itself; it now lives in existing_churches.py, shared with pipeline.py. See that
+# module's docstring for why the live scraper needed this fix.
+from .existing_churches import DEFAULT_PAGE_SIZE, fetch_all_existing_churches
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +58,85 @@ CHRISTIAN_SUBTYPE = "CHRISTIAN"
 _EXCLUDE_NAME_KEYWORDS = ("mosque", "synagogue", "temple", "gurdwara", "masjid", "shul")
 _INCLUDE_NAME_KEYWORDS = ("church", "chapel", "cathedral", "parish", "ministries", "ministry")
 
+# The dataset's `denom` column is a raw abbreviation code (e.g. "BAPT", "SBC", "AME"),
+# not the site's DENOMINATIONS taxonomy (apps/client/src/app/models/church.model.ts) —
+# left unmapped here in the initial Prompt 7 pass, the denomination filter matched
+# almost nothing against the real import. Mirrors V8__normalize_denominations_and_
+# case_insensitive_filters.sql's backfill exactly, so a fresh import and the already-
+# backfilled rows agree; keep the two in sync if this map changes. Best-effort
+# taxonomy alignment (see that migration's comment for the per-code reasoning), not an
+# authoritative one. Codes not in this map pass through unchanged, except "UNK" (the
+# dataset's own "unknown" marker) which clears to None like a genuinely blank value.
+DENOMINATION_CODE_MAP = {
+    # Baptist
+    "BAPT": "Baptist", "ABC": "Baptist", "SBC": "Baptist", "NBC": "Baptist",
+    "MISSBAPT": "Baptist", "BGC": "Baptist", "CBF": "Baptist", "GBA": "Baptist",
+    "BBF": "Baptist", "ABC-NBC": "Baptist", "NBC-ABC": "Baptist",
+    # Methodist (incl. historically-Black Methodist bodies)
+    "AME": "Methodist", "AMEZ": "Methodist", "UMC": "Methodist", "CME": "Methodist",
+    "WES": "Methodist",
+    # Latter-day Saint
+    "LDS": "Latter-day Saint (LDS)",
+    # Presbyterian / Reformed-Presbyterian
+    "PCA": "Presbyterian", "PCUSA": "Presbyterian", "PRESB": "Presbyterian",
+    "EPC": "Presbyterian", "KPC": "Presbyterian", "KPCA": "Presbyterian",
+    # Episcopal/Anglican
+    "EPIS": "Episcopal/Anglican", "ANGLICAN": "Episcopal/Anglican",
+    # Lutheran
+    "ELCA": "Lutheran", "LCMS": "Lutheran", "LUTH": "Lutheran",
+    # Church of Christ
+    "COC": "Church of Christ", "COC ACA": "Church of Christ",
+    # Non-denominational
+    "NONDENOM": "Non-denominational",
+    # Pentecostal / Assembly of God (incl. Holiness-Pentecostal bodies)
+    "AG": "Pentecostal / Assembly of God", "COG": "Pentecostal / Assembly of God",
+    "COGA": "Pentecostal / Assembly of God", "COGIC": "Pentecostal / Assembly of God",
+    "4SQ": "Pentecostal / Assembly of God", "PENT": "Pentecostal / Assembly of God",
+    "APOSTOLIC": "Pentecostal / Assembly of God", "UPC": "Pentecostal / Assembly of God",
+    "PAW": "Pentecostal / Assembly of God", "IPHC": "Pentecostal / Assembly of God",
+    # Evangelical (incl. Evangelical-Holiness bodies with no closer bucket)
+    "CAL": "Evangelical", "VINE": "Evangelical", "EF": "Evangelical",
+    "EVAN": "Evangelical", "CMA": "Evangelical", "EC": "Evangelical",
+    "NAZ": "Evangelical", "CCCC": "Evangelical",
+    # Seventh-day Adventist
+    "SDA": "Seventh-day Adventist",
+    # No honest match in the current taxonomy — bucketed as Other rather than guessed.
+    "CRC": "Other", "RCA": "Other", "UCC": "Other", "MCC/UCC": "Other",
+    "DOC": "Other", "CHRISTIAN": "Other", "BRETHREN": "Other", "QUAKER": "Other",
+    "RELSCI": "Other", "FCA": "Other", "PNB": "Other",
+    # Dataset's own "unknown" marker — not a real denomination.
+    "UNK": None,
+}
+
+
+def _normalize_denomination(raw: Optional[str]) -> Optional[str]:
+    if raw is None:
+        return None
+    mapped = DENOMINATION_CODE_MAP.get(raw.upper(), raw)
+    return mapped
+
+
+def _denomination_for_row(row) -> Optional[str]:
+    """The dataset encodes Catholic/Orthodox parishes via the separate `cath` boolean
+    flag column, not `denom` — `denom` is "NOT AVAILABLE" for virtually every one of
+    them (confirmed: 0 rows anywhere in the dataset have "CATH" in `denom`). Relying on
+    `denom` alone, as the initial Prompt 7 pass did, silently left ~6,877 Catholic
+    churches' denomination as None. A `cath="Y"` row whose name says "Orthodox" is
+    genuinely Eastern Orthodox (Malankara/Greek/Holy Trinity, checked individually);
+    every other `cath="Y"` row is Catholic. "Orthodox Presbyterian" rows are prot="Y"/
+    cath="N" in this dataset, so they never hit this branch and correctly keep falling
+    through to their own PCA/etc. `denom` code below.
+    """
+    if _clean(row.get("cath")) == "Y":
+        name = (_clean(row.get("name")) or "").lower()
+        return "Eastern Orthodox" if "orthodox" in name else "Catholic"
+    return _normalize_denomination(_clean(row.get("denom")))
+
+
 NOT_AVAILABLE = "NOT AVAILABLE"
 DEFAULT_BATCH_SIZE = 100
 DEFAULT_BATCH_DELAY_S = 1.0
-DEFAULT_PAGE_SIZE = 200
+# DEFAULT_PAGE_SIZE comes from the existing_churches import above.
 BULK_IMPORT_ENDPOINT = "/api/scraper/bulk-import"
 BULK_IMPORT_HEADER = "X-Bulk-Import-Api-Key"
 
@@ -119,7 +199,7 @@ def to_church_dto_shape(row) -> dict:
     rather than re-geocoding hundreds of thousands of addresses for no reason."""
     return {
         "name": _clean(row.get("name")),
-        "denomination": _clean(row.get("denom")),
+        "denomination": _denomination_for_row(row),
         "address": _clean(row.get("address")),
         "city": _clean(row.get("city")),
         "state": _clean(row.get("state")),
@@ -147,34 +227,6 @@ def dedupe_within_batch(churches: Iterable[dict]) -> List[dict]:
         seen.add(key)
         deduped.append(church)
     return deduped
-
-
-def fetch_all_existing_churches(base_url: str, session: requests.Session, page_size: int = DEFAULT_PAGE_SIZE) -> List[dict]:
-    """Pages through GET /api/churches to build the full dedup set. Prompt 2 made
-    that endpoint paginated ({content, totalPages, ...}); this also tolerates the
-    older bare-array shape so the script keeps working regardless of whether that
-    lands before or after this one — Phase A and B run concurrently."""
-    base_url = base_url.rstrip("/")
-    all_churches: List[dict] = []
-    page = 0
-
-    while True:
-        response = session.get(f"{base_url}/api/churches", params={"page": page, "size": page_size}, timeout=30)
-        response.raise_for_status()
-        body = response.json()
-
-        if isinstance(body, list):
-            return body  # pre-Prompt-2 unpaginated shape: one shot, nothing to page through
-
-        content = body.get("content", [])
-        all_churches.extend(content)
-
-        total_pages = body.get("totalPages", 1)
-        page += 1
-        if page >= total_pages or not content:
-            break
-
-    return all_churches
 
 
 def submit_batch(config: BulkImportConfig, session: requests.Session, batch: List[dict]) -> int:

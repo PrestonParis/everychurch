@@ -1,9 +1,10 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
+import { UserAvatarComponent } from './components/user-avatar.component';
 import { AuthService } from './services/auth.service';
 
 @Component({
-  imports: [RouterModule],
+  imports: [RouterModule, UserAvatarComponent],
   selector: 'app-root',
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -23,8 +24,34 @@ export class App {
     this.adminOpen.set(false);
   }
 
+  /** Same click-to-open pattern as the Admin menu above. */
+  accountMenuOpen = signal(false);
+
+  toggleAccountMenu() {
+    this.accountMenuOpen.set(!this.accountMenuOpen());
+  }
+
+  closeAccountMenu() {
+    this.accountMenuOpen.set(false);
+  }
+
+  /** Browse/Events/Feed/Favorites/Messages are `hidden sm:block` in the nav bar
+   *  itself — this is where they reappear below `sm`, rather than just vanishing
+   *  with no way to reach them on a phone. */
+  mobileMenuOpen = signal(false);
+
+  toggleMobileMenu() {
+    this.mobileMenuOpen.set(!this.mobileMenuOpen());
+  }
+
+  closeMobileMenu() {
+    this.mobileMenuOpen.set(false);
+  }
+
   logout() {
     this.closeAdmin();
+    this.closeAccountMenu();
+    this.closeMobileMenu();
     this.authService.logout();
     this.router.navigate(['/churches']);
   }

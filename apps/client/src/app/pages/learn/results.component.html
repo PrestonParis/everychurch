@@ -1,0 +1,157 @@
+<main class="faith-shell">
+  <a routerLink="/learn">← Learn</a>
+  <p class="eyebrow" style="margin-top: 1.5rem">
+    Your beliefs & your next steps
+  </p>
+  <h1>Room to explore.</h1>
+  @if (error()) {
+    <p role="alert" class="error">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p role="status" class="notice">{{ notice() }}</p>
+  }
+  @if (service.result(); as result) {
+    <p>{{ result.guidance }}</p>
+    <div class="actions">
+      <a class="button" routerLink="/learn/denomination-quiz"
+        >Review my answers</a
+      ><button (click)="clear()">Clear this session</button
+      ><button [disabled]="busy()" (click)="recalculate()">Recalculate</button>
+      @if (auth.isAuthenticated()) {
+        <button class="primary" [disabled]="busy()" (click)="save()">
+          Save privately to my account
+        </button>
+      } @else {
+        <a routerLink="/login">Sign in to save privately</a>
+      }
+    </div>
+    <p class="muted">
+      Churches cannot see your answers. Saved results can be deleted below.
+      Scoring emphasizes doctrine (75%) and practices (25%) when you answer
+      both.
+    </p>
+    <section class="card">
+      <h2 style="margin-top: 0">Find churches to visit</h2>
+      <p>
+        Only churches with published, confirmed beliefs are compared. Other
+        listings remain available in the
+        <a routerLink="/churches">directory</a>.
+      </p>
+      <div class="grid">
+        <label
+          >City<input
+            [(ngModel)]="city"
+            autocomplete="address-level2"
+            maxlength="100" /></label
+        ><label
+          >State (for example, IL)<input
+            [(ngModel)]="state"
+            autocomplete="address-level1"
+            maxlength="100" /></label
+        ><label
+          >Nearby radius<select [(ngModel)]="radius">
+            <option [ngValue]="10">10 km</option>
+            <option [ngValue]="40">40 km</option>
+            <option [ngValue]="100">100 km</option>
+            <option [ngValue]="200">200 km</option>
+          </select></label
+        >
+      </div>
+      <div class="actions">
+        <button class="primary" [disabled]="busy()" (click)="findChurches()">
+          Search city & state</button
+        ><button [disabled]="busy()" (click)="findChurches(true)">
+          Use my location
+        </button>
+      </div>
+      <p class="muted">
+        The radius applies to “Use my location.” City and state search matches
+        that city exactly.
+      </p>
+    </section>
+    @if (busy()) {
+      <p role="status">Comparing published profiles…</p>
+    }
+    @if (result.locationProvided) {
+      <h2>Local churches</h2>
+      <p class="muted">
+        {{ result.churchesEvaluated }} published profiles evaluated. Up to 30
+        results shown.
+      </p>
+      <div class="grid">
+        @for (m of group(result.churches, false); track m.id) {
+          <app-faith-match [match]="m" />
+        } @empty {
+          <p class="notice">
+            No compatible published profiles were found here. Try a wider
+            radius, explore the directory, or ask a church to complete its
+            beliefs profile. Your essential preferences have not been relaxed.
+          </p>
+        }
+      </div>
+      @if (group(result.churches, true).length) {
+        <details class="card">
+          <summary>
+            Churches with differences on essential topics ({{
+              group(result.churches, true).length
+            }})
+          </summary>
+          <div class="grid">
+            @for (m of group(result.churches, true); track m.id) {
+              <app-faith-match [match]="m" />
+            }
+          </div>
+        </details>
+      }
+    }
+    <h2>Traditions to explore</h2>
+    <p class="muted">
+      Reference profiles describe particular church bodies, not every
+      congregation with a similar name. Some references have limited coverage. A
+      high score on a few known topics is not a comprehensive match.
+    </p>
+    <div class="grid">
+      @for (m of group(result.traditions, false); track m.id) {
+        <app-faith-match [match]="m" />
+      }
+    </div>
+    @if (group(result.traditions, true).length) {
+      <details class="card">
+        <summary>Traditions with differences on essential topics</summary>
+        <div class="grid">
+          @for (m of group(result.traditions, true); track m.id) {
+            <app-faith-match [match]="m" />
+          }
+        </div>
+      </details>
+    }
+    <p class="muted">
+      Quiz {{ result.catalogVersion }} · {{ result.rulesVersion }} · evaluated
+      {{ result.evaluatedAt.slice(0, 10) }}
+    </p>
+  } @else {
+    <p>
+      Take the quiz to explore your alignment, or open a saved result below.
+    </p>
+    <a class="button primary" routerLink="/learn/denomination-quiz"
+      >Start the quiz</a
+    >
+  }
+  @if (auth.isAuthenticated()) {
+    <h2>Your private saved results</h2>
+    @for (s of saved(); track s.id) {
+      <div class="card">
+        <p>
+          Quiz taken {{ s.createdAt.slice(0, 10) }} ·
+          {{ s.result.catalogVersion }}
+        </p>
+        <div class="actions">
+          <button (click)="open(s)">Open saved snapshot</button
+          ><button (click)="remove(s)">Delete saved result</button>
+        </div>
+      </div>
+    } @empty {
+      <p class="muted">No saved results.</p>
+    }
+  }
+</main>

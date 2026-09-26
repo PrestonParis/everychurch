@@ -25,7 +25,7 @@
             <p class="text-sm font-semibold text-indigo-600 mt-2">{{ formatDate(event.startsAt) }}</p>
           </div>
 
-          @if (authService.isAuthenticated()) {
+          @if (canManage) {
             <div class="flex items-center gap-2 flex-shrink-0">
               <a [routerLink]="['/events', event.id, 'edit']"
                 class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium transition-colors">
@@ -51,13 +51,13 @@
 
       <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
         <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">
-          {{ churches().length > 1 ? 'Co-Hosting Churches' : 'Hosted By' }}
+          {{ (event.churches ?? []).length > 1 ? 'Co-Hosting Churches' : 'Hosted By' }}
         </h2>
-        @if (churches().length === 0) {
-          <p class="text-sm text-slate-400">No church information available.</p>
+        @if (!event.churches || event.churches.length === 0) {
+          <p class="text-sm text-slate-400">No church has confirmed hosting this event yet.</p>
         } @else {
           <div class="space-y-3">
-            @for (church of churches(); track church.id) {
+            @for (church of event.churches; track church.id) {
               <a [routerLink]="['/churches', church.id]"
                 class="flex items-center gap-3 text-sm text-slate-700 hover:text-indigo-600 transition-colors">
                 <div class="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs flex-shrink-0">
@@ -69,6 +69,41 @@
           </div>
         }
       </div>
+
+      <!-- Pending co-host invitations — never shown as public "hosted by" claims
+           (that section above only ever lists CONFIRMED churches). Visible to the
+           event's managers (informational) and to each invited church's own staff,
+           who get Accept/Decline here — the interactive half of co-host consent. -->
+      @if (canManage && event.pendingChurches?.length) {
+        <div class="bg-white rounded-2xl ring-1 ring-slate-200 p-6">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-4">Pending co-host invitations</h2>
+          <div class="space-y-3">
+            @for (church of event.pendingChurches; track church.id) {
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 text-sm text-slate-700 min-w-0">
+                  <div class="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs flex-shrink-0">
+                    {{ church.name[0] }}
+                  </div>
+                  <span class="truncate">{{ church.name }}</span>
+                  <span class="flex-shrink-0 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">Awaiting response</span>
+                </div>
+                @if (respondablePendingChurches.includes(church)) {
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <button type="button" (click)="respondToCoHost(church.id, true)" [disabled]="respondingChurchId() === church.id"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors disabled:opacity-50">
+                      Accept
+                    </button>
+                    <button type="button" (click)="respondToCoHost(church.id, false)" [disabled]="respondingChurchId() === church.id"
+                            class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors disabled:opacity-50">
+                      Decline
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
     </div>
   </div>
 }

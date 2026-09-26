@@ -49,13 +49,21 @@ describe('ChurchProfileComponent (zoneless rendering)', () => {
     return fixture;
   }
 
-  /** Answers every request the page makes: the church itself, and empty lists for the rest. */
-  function respond(status?: { member: boolean; staff: boolean; canChat: boolean }, churchBody: object | null = church) {
+  /** Answers every request the page makes: the church itself, and empty lists for the rest.
+   *  permissions is this viewer's ChurchStaffDto.permissions for church 7 specifically
+   *  (see /api/users/me/staff-churches) — undefined means "not staff anywhere". */
+  function respond(
+    status?: { member: boolean; staff: boolean; canChat: boolean },
+    churchBody: object | null = church,
+    permissions?: string[]
+  ) {
     for (const req of http.match(() => true)) {
       if (req.request.url === '/api/churches/7') {
         churchBody ? req.flush(churchBody) : req.flush({ error: 'not found' }, { status: 404, statusText: 'Not Found' });
       } else if (req.request.url === '/api/churches/7/members/me') {
         req.flush(status ?? { member: false, staff: false, canChat: false });
+      } else if (req.request.url === '/api/users/me/staff-churches') {
+        req.flush(permissions ? [{ id: 1, churchId: 7, userEmail: 'a@b.c', isOwner: false, permissions }] : []);
       } else {
         req.flush([]);
       }
@@ -66,9 +74,14 @@ describe('ChurchProfileComponent (zoneless rendering)', () => {
    * Answer requests, let Angular render, repeat. The community and chat children only exist
    * (and only make their own requests) once the church has rendered, so one pass isn't enough.
    */
-  async function settle(fixture: { whenStable: () => Promise<unknown> }, status?: { member: boolean; staff: boolean; canChat: boolean }, churchBody: object | null = church) {
+  async function settle(
+    fixture: { whenStable: () => Promise<unknown> },
+    status?: { member: boolean; staff: boolean; canChat: boolean },
+    churchBody: object | null = church,
+    permissions?: string[]
+  ) {
     for (let round = 0; round < 3; round++) {
-      respond(status, churchBody);
+      respond(status, churchBody, permissions);
       await fixture.whenStable();
     }
   }
@@ -112,11 +125,28 @@ describe('ChurchProfileComponent (zoneless rendering)', () => {
     expect(text(fixture)).not.toContain('+ Event');
   });
 
-  it('shows the management controls to that church\'s staff', async () => {
+  it('shows the management controls a staff member actually has permission for', async () => {
     const fixture = setup({ authenticated: true });
-    await settle(fixture, { member: false, staff: true, canChat: true });
+    await settle(fixture, { member: false, staff: true, canChat: true }, church, [
+      'EDIT_PROFILE', 'MANAGE_SERMONS', 'MANAGE_EVENTS',
+    ]);
 
     expect(text(fixture)).toContain('+ Event');
+    expect(text(fixture)).toContain('Edit');
+    expect(text(fixture)).toContain('Sermons');
+  });
+
+  it('only shows the specific control a limited-permission staff member actually has — not every control, per a plain "is staff" check', async () => {
+    const fixture = setup({ authenticated: true });
+    // appointed for events only — MemberService still reports them as "staff" (that
+    // boolean just means "has some ChurchStaff row"), but they must not be offered
+    // Edit/Photos/Sermons, which the server would reject.
+    await settle(fixture, { member: false, staff: true, canChat: true }, church, ['MANAGE_EVENTS']);
+
+    expect(text(fixture)).toContain('+ Event');
+    expect(text(fixture)).not.toContain('Edit');
+    expect(text(fixture)).not.toContain('Photos');
+    expect(text(fixture)).not.toContain('Sermons');
   });
 
   it('shows them to a Platform Admin without needing to be staff', async () => {
@@ -126,12 +156,19 @@ describe('ChurchProfileComponent (zoneless rendering)', () => {
     expect(text(fixture)).toContain('+ Event');
   });
 
-  it('shows them to any logged-in user while the church is still unclaimed (the server allows it)', async () => {
+  it('hides the management controls from a plain logged-in user for an unclaimed church (Platform Admin only, per docs/PROMPTS.md)', async () => {
     const fixture = setup({ authenticated: true });
     await settle(fixture, undefined, { ...church, claimed: false });
 
-    expect(text(fixture)).toContain('+ Event');
+    expect(text(fixture)).not.toContain('+ Event');
     expect(text(fixture)).toContain('Is this your church?');
+  });
+
+  it('shows them to a Platform Admin for an unclaimed church', async () => {
+    const fixture = setup({ authenticated: true, role: 'PLATFORM_ADMIN' });
+    await settle(fixture, undefined, { ...church, claimed: false });
+
+    expect(text(fixture)).toContain('+ Event');
   });
 
   it('offers no claim card once the church has an owner', async () => {

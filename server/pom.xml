@@ -51,6 +51,14 @@
 			<artifactId>spring-boot-starter-websocket</artifactId>
 		</dependency>
 
+		<!-- Password-reset emails (SmtpMailService). Degrades to logging the reset link
+		     rather than failing when spring.mail.host is unset — see that class and
+		     .env.example's MAIL_* variables. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>

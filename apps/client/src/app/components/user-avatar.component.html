@@ -1,0 +1,7 @@
+@if (avatarUrl()) {
+  <img [src]="avatarUrl()" [alt]="displayName()" [class]="sizeClasses() + ' rounded-full object-cover ring-1 ring-hairline shrink-0'" />
+} @else {
+  <span [class]="sizeClasses() + ' rounded-full bg-oxblood text-white flex items-center justify-center font-serif font-semibold shrink-0'">
+    {{ initial() }}
+  </span>
+}

@@ -1,0 +1,98 @@
+<main class="faith-shell">
+  @if (error()) {
+    <p role="alert" class="error">{{ error() }}</p>
+  }
+  @if (catalog(); as c) {
+    @if (tradition(); as t) {
+      <a routerLink="/learn">← Learn</a>
+      <p class="eyebrow">Christian traditions</p>
+      <h1>{{ t.name }}</h1>
+      <p>{{ t.summary }}</p>
+      <p class="notice">
+        A sourced introduction, not a complete statement of faith. A local
+        church’s confirmed profile takes precedence for local matching.
+      </p>
+      <div class="grid">
+        @for (entry of entries(t); track entry.title) {
+          <article class="card">
+            <h3>{{ entry.title }}</h3>
+            <p>{{ entry.label }}</p>
+          </article>
+        }
+      </div>
+      <h2>Read the original sources</h2>
+      <ul>
+        @for (source of t.sources; track source.url) {
+          <li>
+            <a [href]="source.url" target="_blank" rel="noopener noreferrer"
+              >{{ source.title }} ↗</a
+            >
+          </li>
+        }
+      </ul>
+      <a class="button primary" routerLink="/learn/denomination-quiz"
+        >Explore your alignment</a
+      >
+    } @else if (!slug) {
+      <p class="eyebrow">EveryChurch · Learn</p>
+      <section class="hero">
+        <h1>A place to explore<br />what you believe.</h1>
+        <p>
+          Discover Christian traditions, understand their differences, and find
+          churches that share your beliefs and devotional interests.
+        </p>
+        <div class="actions">
+          <a class="button primary" routerLink="/learn/denomination-quiz"
+            >Take the denomination quiz →</a
+          ><a routerLink="/learn/denomination-quiz/results">Your results</a>
+        </div>
+        <p class="muted">
+          {{ c.dimensions.length }} questions · No account needed · It’s okay to
+          be unsure
+        </p>
+      </section>
+      <div class="grid">
+        <article class="card">
+          <h3>Beliefs, explained</h3>
+          <p>
+            Explore baptism, Communion, spiritual gifts and church authority
+            with plain-language explanations.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Your spiritual life</h3>
+          <p>
+            Consider prayer, Scripture study, liturgy and the devotions you’d
+            like to practice.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Churches, with context</h3>
+          <p>
+            See agreements, differences and unanswered questions using
+            information confirmed by each church.
+          </p>
+        </article>
+      </div>
+      <h2>Explore Christian traditions</h2>
+      <p class="muted">
+        This first reference library covers the bodies below. Other traditions
+        remain welcome in the directory and can publish their own church
+        profiles.
+      </p>
+      <div class="grid">
+        @for (t of c.traditions; track t.id) {
+          <article class="card">
+            <h3>
+              <a [routerLink]="['/learn/traditions', t.id]">{{ t.name }} →</a>
+            </h3>
+            <p class="muted">{{ t.summary }}</p>
+          </article>
+        }
+      </div>
+      <p class="muted" style="margin-top: 2rem">{{ c.notice }}</p>
+    }
+  } @else if (!error()) {
+    <p role="status">Loading the learning library…</p>
+  }
+</main>

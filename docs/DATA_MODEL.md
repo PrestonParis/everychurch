@@ -11,7 +11,7 @@ This is the contract every implementation prompt is checked against. Entities ar
 |---|---|---|
 | id | Long | PK |
 | name | String | required |
-| denomination | String | free text today; will need a controlled taxonomy once Faith Formation content (Prompt 22) lands |
+| denomination | String | still a free-text column, but constrained in practice to the `DENOMINATIONS` list in `apps/client/src/app/models/church.model.ts` (the church-form dropdown and the directory filter both read from it) — a full controlled taxonomy (FK to a `Denomination` table) is still what Faith Formation content (Prompt 22) will need. The 2026-09-22 bulk import wrote the Kaggle dataset's raw abbreviation codes ("BAPT", "SBC", ...) straight into this column unmapped; `V8__normalize_denominations_and_case_insensitive_filters.sql` backfilled them onto `DENOMINATIONS` (best-effort — see that migration's per-code comments) and `bulk_import.py`'s `DENOMINATION_CODE_MAP` normalizes at ingest time going forward, but nothing stops a future write from putting an arbitrary string here again. Separately, Catholic/Orthodox parishes were left almost entirely null by that same import: the dataset flags them via a `cath` boolean column, not `denom` (`denom` is `"NOT AVAILABLE"` for virtually all of them), which the initial mapping never read — `bulk_import.py`'s `_denomination_for_row` now checks that flag (see docs/SCRAPER.md "Bulk import"); the ~6,877 already-imported rows this affected were fixed with a one-off SQL backfill (matched by the same normalized name+zip key `dedup.py` uses, scoped to `denomination IS NULL` so nothing else was touched) rather than a new numbered migration, since the correct value isn't derivable from any column this table already has — it required rejoining against the source CSV's `cath` flag, which was never persisted. |
 | address, city, state, zipCode | String | |
 | phone, email, website | String | |
 | description | String (TEXT) | |
@@ -21,6 +21,7 @@ This is the contract every implementation prompt is checked against. Entities ar
 | claimed | boolean | superseded by `Claim` (below) — kept for backward compatibility until Prompt 7 migrates it |
 | latitude, longitude | Double | *Implemented (Prompt 14)* — nullable. Client-supplied value wins if the request includes both (e.g. the scraper's Places API result); otherwise geocoded server-side from address/city/state/zipCode. A failed or unconfigured geocode (no `GOOGLE_GEOCODING_API_KEY`) leaves existing coordinates untouched rather than clearing them. |
 | serviceTimes | List\<ServiceTime\> | one-to-many, cascade + orphan removal |
+| serviceSummary | String | *Implemented (Prompt 16 feedback #6)* — denormalized, e.g. `"Sundays 9:00 AM & 11:00 AM +1 more"`. Computed at write time by `ChurchService.buildServiceSummary` and stored alongside `serviceTimes` so the paginated list/search endpoints can show it without ever loading the LAZY `serviceTimes` collection. |
 
 Owner: `server` (writes), `apps/scraper` (proposes via the `ChurchSubmission` queue — see below — never writes directly, with one exception).
 
@@ -51,6 +52,7 @@ Owner: `server`, always written as part of a `Church` update.
 | email | String | unique, required |
 | passwordHash | String | BCrypt, `@JsonIgnore` |
 | role | `Role` enum | `MEMBER`, `VOLUNTEER`, `CHURCH_ADMIN`, `PLATFORM_ADMIN` — Visitor is unauthenticated and not persisted |
+| displayName | String | *Implemented (Prompt 16 feedback #2)* — required at registration (`AuthService.requireDisplayName`, blank/missing rejected). Nullable in the column only because rows seeded before this field existed have none; `User.getDisplayName()` falls back to the email's local part for any such row (there should be none going forward). Returned on `AuthResponse` and used as the chat sender name. |
 | createdAt | Instant | |
 
 Owner: `server` (`AuthService`, `UserRepository`). Read by: `apps/client` (`AuthService`, auth state signal).
@@ -70,6 +72,19 @@ Auth flow: `POST /api/auth/register` and `POST /api/auth/login` (`AuthController
 | createdAt, expiresAt, redeemedAt | Instant | `expiresAt` nullable = no expiry |
 
 CRUD: create/revoke/list by `PLATFORM_ADMIN` only (`POST`/`PATCH`/`GET /api/admin/volunteer-invites`). Redeemed by anyone with a valid code via `POST /api/auth/register/volunteer`, which creates the `User` (`Role.VOLUNTEER`) and marks the invite `REDEEMED` in the same operation — a code can't be reused, and an expired or revoked code is rejected.
+
+### `PasswordResetToken` — *Implemented (scaffolding pass, 2026-09-22)*
+`server/src/main/java/com/everychurch/server/model/PasswordResetToken.java`
+
+| Field | Type | Notes |
+|---|---|---|
+| id | Long | PK |
+| user | User | many-to-one |
+| tokenHash | String | SHA-256 hex of the raw token, unique — only the hash is ever persisted, the raw value exists only in the emailed link (see `AuthService.hashToken`) |
+| createdAt, expiresAt | Instant | 1-hour TTL, set at issue time (`AuthService.RESET_TOKEN_TTL`) |
+| usedAt | Instant | nullable; set once the token resets a password, after which it's rejected on reuse |
+
+Owner: `server` (`AuthService`, `PasswordResetTokenRepository`). `POST /api/auth/forgot-password` issues one (deleting any earlier unused token for that user first, so at most one is ever valid) and emails the link via `MailService`; `POST /api/auth/reset-password` consumes it. See ARCHITECTURE.md "Auth & Permissions Model" → "Forgot/reset password".
 
 ## Implemented (continued)
 
@@ -99,7 +114,7 @@ CRUD: `POST /api/churches/{churchId}/claims` — create by any authenticated `Us
 | isOwner | boolean | set true for the user whose `Claim` was approved; can't be changed or removed via the staff endpoints |
 | permissions | Set\<`ChurchPermission`\> | `EDIT_PROFILE`, `MANAGE_SERMONS`, `MANAGE_EVENTS`, `MANAGE_STAFF` — irrelevant for an owner, who has every permission implicitly (`ChurchStaff.hasPermission`) |
 
-CRUD: `GET/POST /api/churches/{churchId}/staff`, `PATCH/DELETE /api/churches/{churchId}/staff/{staffId}` — only the church's owner, a staff member with `MANAGE_STAFF`, or a `PLATFORM_ADMIN` may list/add/edit/remove; the owner row itself can't be edited or removed this way. `ChurchService.update`/`delete` also check this table directly: once a church is claimed, editing needs `EDIT_PROFILE` and deleting needs to be the owner (or `PLATFORM_ADMIN`) — an *unclaimed* church still has no owner, so it stays editable/deletable by any authenticated user until someone claims it.
+CRUD: `GET/POST /api/churches/{churchId}/staff`, `PATCH/DELETE /api/churches/{churchId}/staff/{staffId}` — only the church's owner, a staff member with `MANAGE_STAFF`, or a `PLATFORM_ADMIN` may list/add/edit/remove; the owner row itself can't be edited or removed this way. `ChurchService.update`/`delete` also check this table directly: once a church is claimed, editing needs `EDIT_PROFILE` and deleting needs to be the owner (or `PLATFORM_ADMIN`). An *unclaimed* church has no owner — as of *Prompt 16 feedback #1*, editing one now requires `PLATFORM_ADMIN` specifically (`ChurchService.requirePlatformAdmin`), not just any authenticated user; this applies to the edit path only, not church creation or the separate `ChurchSubmission` volunteer path, which are unaffected.
 
 ### `ChurchSubmission` — *Implemented (Prompt 13 + 17)*
 `server/src/main/java/com/everychurch/server/model/ChurchSubmission.java`. The verification queue backing both the Volunteer workflow and the scraper's ingestion pipeline (`apps/scraper`) — both submit through this same table, distinguished only by `submittedBy`.
@@ -115,6 +130,8 @@ CRUD: `GET/POST /api/churches/{churchId}/staff`, `PATCH/DELETE /api/churches/{ch
 | createdAt / reviewedAt | Instant | |
 
 CRUD: `POST /api/submissions` (new church) and `POST /api/churches/{churchId}/submissions` (edit) — create by `VOLUNTEER` users only (`ChurchSubmissionService.requireVolunteer`, 403 for anyone else), via a user JWT. `POST /api/scraper/church-submissions` — bulk create, `ChurchSubmissionService.submitFromScraper`, authenticated by the `X-Scraper-Api-Key` header instead of a JWT (see ARCHITECTURE.md/SCRAPER.md), always a new-church proposal. `GET/POST /api/admin/submissions[/{id}/approve|reject]` — list/approve/reject, `PLATFORM_ADMIN` only, same pattern as `Claim`. On approval (`ChurchSubmissionService.approve`), the payload is applied via the existing `ChurchService.create`/`update` — a new `Church` if `targetChurch` was null, otherwise an update to it (which also re-runs geocoding, since it's the same code path a direct edit would use).
+
+**Duplicate hints** (*Prompt 16 feedback #4*): `ChurchSubmissionDto.possibleDuplicates` — up to 5 existing `Church` rows whose name is trigram-similar (`pg_trgm`, `ChurchRepository.findPossibleDuplicates`) *and* share a city or zip with the proposed church, computed only while `status == PENDING` (empty otherwise, since a decided submission has nothing left to warn about). Non-blocking — surfaced to the reviewer in `admin-submissions.component` as a hint, never prevents create/approve.
 
 ### `ChurchImage` — *Implemented (Prompt 10)*
 `server/src/main/java/com/everychurch/server/model/ChurchImage.java`
@@ -141,6 +158,8 @@ CRUD: `GET /api/churches/{churchId}/images` — public. `POST`/`PUT /{imageId}`/
 | churches | Set\<Church\> | many-to-many — co-hosting |
 
 CRUD: `GET /api/events[?churchId=]`, `GET /api/events/{id}` — public. `POST`/`PUT /{id}`/`DELETE /{id}` — requires `MANAGE_EVENTS` on at least one participating church (checked against both the existing and the incoming church set on update), or `PLATFORM_ADMIN`.
+
+`EventDto` (*Prompt 16 feedback #5*) carries both `churchIds` (unchanged, used by the event form to preselect co-hosts) and a new `churches: {id, name}[]` — added so event cards can show "Hosted by X" instead of just a co-host count, without a second round-trip per church.
 
 ### `Sermon` — *Implemented (Prompt 12)*
 `server/src/main/java/com/everychurch/server/model/Sermon.java`
@@ -169,7 +188,7 @@ CRUD: `POST /api/churches/{churchId}/members` (join — any authenticated user, 
 
 **The access rule** (`MemberService.canAccessGroup`, the single source of truth for everything congregation-private — the member list *and* the chat): the caller is a member of that church, is on its `ChurchStaff`, or is a `PLATFORM_ADMIN`. Anyone else gets **403**, not an empty list — "not allowed" is different from "nobody here". A member of Church A can't see Church B's members.
 
-**Privacy:** `MemberDto` exposes `displayName` (the local part of the email), never the full address — the list is visible to the whole congregation and nobody needs everyone's email for networking. The same applies to chat senders.
+**Privacy:** `MemberDto` exposes `displayName` (the real, user-chosen name as of Prompt 16 feedback #2 — previously derived from the email's local part), never the full address — the list is visible to the whole congregation and nobody needs everyone's email for networking. The same applies to chat senders.
 
 All three of `/staff`, `/members` and `/messages` under `/api/churches/{id}/` are declared `authenticated()` in `SecurityConfig` *ahead of* the public `GET /api/churches/**` rule (first match wins). Without that ordering an anonymous request slipped through the security layer and reached a controller with a null `Authentication` — a 500 rather than a 401. This was already true of the staff list before members/chat existed.
 
@@ -234,3 +253,7 @@ CRUD: create by any authenticated `User`; review by `PLATFORM_ADMIN`.
 5. ~~`Member`, `Message`~~ — **done.** Membership is the access boundary for the member list and the group chat.
 6. `Article`, `Survey`/`Question`/`Response` (Faith Formation, Prompts 19–20) — independent of church data, only need `User`.
 7. `Report` (Vetting, Prompt 23) — needs `User`, `Church`.
+
+## Learn / faith matching (2026-09-23)
+
+The denomination quiz uses an implemented versioned catalog and typed belief/practice answers rather than the earlier generic Survey proposal. `faith_catalogs`/`faith_catalog_current`, `faith_drafts`, `faith_profiles`/`faith_profile_current`, and private `faith_saved_attempts` support source-backed questions, church confirmation, immutable publication history and reproducible saved results. Church writes require `MANAGE_BELIEFS` (or owner/platform-admin access). See [FAITH_MATCHING.md](FAITH_MATCHING.md) for schema decisions, matching rules, privacy and remaining editorial/pilot work. General articles and unrelated surveys remain separate work.

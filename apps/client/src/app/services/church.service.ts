@@ -8,6 +8,11 @@ export interface ChurchSearchParams {
   denomination?: string;
   state?: string;
   city?: string;
+  /** Per-browser-session value giving a stable pseudo-random default order; ignored server-side once `query` is set. */
+  seed?: string;
+  /** User's known location, if already silently available (see church-list.component.ts) — sorts nearest-first instead of shuffled. */
+  lat?: number;
+  lng?: number;
   page?: number;
   size?: number;
 }
@@ -26,8 +31,21 @@ export class ChurchService {
     if (params.denomination) httpParams = httpParams.set('denomination', params.denomination);
     if (params.state) httpParams = httpParams.set('state', params.state);
     if (params.city) httpParams = httpParams.set('city', params.city);
+    if (params.seed) httpParams = httpParams.set('seed', params.seed);
+    if (params.lat !== undefined) httpParams = httpParams.set('lat', String(params.lat));
+    if (params.lng !== undefined) httpParams = httpParams.set('lng', String(params.lng));
 
     return this.http.get<PagedResult<Church>>(this.base, { params: httpParams });
+  }
+
+  suggestCities(prefix: string, state?: string): Observable<string[]> {
+    let httpParams = new HttpParams().set('prefix', prefix);
+    if (state) httpParams = httpParams.set('state', state);
+    return this.http.get<string[]>(`${this.base}/cities`, { params: httpParams });
+  }
+
+  suggestStates(prefix: string): Observable<string[]> {
+    return this.http.get<string[]>(`${this.base}/states`, { params: new HttpParams().set('prefix', prefix) });
   }
 
   nearest(lat: number, lng: number, radiusMeters?: number, limit?: number): Observable<Church[]> {
@@ -56,5 +74,12 @@ export class ChurchService {
 
   parseUrl(url: string): Observable<Church> {
     return this.http.post<Church>(`${this.base}/parse-url`, { url });
+  }
+
+  /** Fire-and-forget from ChurchProfileComponent — feeds "recently viewed" on the
+   *  Favorites page. The server silently no-ops for anonymous callers (auth
+   *  required), so this is only worth calling when the viewer is logged in. */
+  recordView(id: number): Observable<void> {
+    return this.http.post<void>(`${this.base}/${id}/view`, {});
   }
 }

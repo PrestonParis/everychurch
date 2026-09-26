@@ -4,7 +4,7 @@ import requests
 import responses
 
 from scraper.config import ScraperConfig
-from scraper.pipeline import _build_submission, _fetch_existing_churches, _to_church_dto_shape, run
+from scraper.pipeline import _build_submission, _to_church_dto_shape, run
 
 
 def make_config():
@@ -17,12 +17,44 @@ def make_config():
 
 
 @responses.activate
-def test_fetch_existing_churches_returns_json_list():
-    responses.add(responses.GET, "https://api.example.com/api/churches", json=[{"name": "A"}])
+def test_run_dedupes_correctly_against_the_real_paginated_churches_response():
+    """Regression test for a bug found in review: pipeline.py used to fetch
+    GET /api/churches with `response.json()` and hand the result straight to
+    dedup.filter_new, which expects a list of church dicts. Since Prompt 2 that
+    endpoint returns a paginated `{content, totalPages, ...}` object instead of
+    a bare array — iterating that dict iterates its *keys* (strings), so the
+    first `.get()` inside raised `AttributeError: 'str' object has no attribute
+    'get'` on any real (non-empty) server the moment a live run reached this
+    code path. Exercises the real HTTP shape end-to-end through run(), not a
+    mocked-away fetch, so this would have caught it."""
+    responses.add(
+        responses.GET,
+        "https://api.example.com/api/churches",
+        json={"content": [{"name": "Existing Church", "zipCode": "60614"}], "totalPages": 1},
+    )
+    config = make_config()
 
-    result = _fetch_existing_churches("https://api.example.com/", requests.Session())
+    with patch("scraper.pipeline.PlacesClient"), patch(
+        "scraper.pipeline.discover_churches",
+        return_value=[
+            {"place_id": "a", "name": "Existing Church", "zip_code": "60614"},  # already known -> filtered out
+            {"place_id": "b", "name": "New Church", "zip_code": "60615"},
+        ],
+    ), patch(
+        "scraper.pipeline._build_submission", return_value={"name": "New Church"}
+    ) as build_submission, patch(
+        "scraper.pipeline.SubmissionClient"
+    ) as SubmissionClientCls, patch(
+        "scraper.pipeline.ScraperRunClient"
+    ) as RunClientCls:
+        submission_client = SubmissionClientCls.return_value
+        submission_client.submit_all.return_value = 1
+        RunClientCls.return_value.start.return_value = 1
 
-    assert result == [{"name": "A"}]
+        result = run(config=config, session=requests.Session())
+
+    build_submission.assert_called_once()  # only the genuinely new church reaches submission
+    assert result == {"discovered": 2, "new": 1, "accepted": 1}
 
 
 def test_build_submission_merges_details_and_enrichment_without_overwriting_with_falsy_values():
@@ -67,7 +99,7 @@ def test_run_orchestrates_discovery_dedup_enrichment_and_submission():
     with patch("scraper.pipeline.PlacesClient"), patch(
         "scraper.pipeline.discover_churches",
         return_value=[{"place_id": "a", "name": "A", "zip_code": "1"}],
-    ), patch("scraper.pipeline._fetch_existing_churches", return_value=[]), patch(
+    ), patch("scraper.pipeline.fetch_all_existing_churches", return_value=[]), patch(
         "scraper.pipeline.filter_new",
         return_value=[{"place_id": "a", "name": "A", "zip_code": "1"}],
     ), patch(
@@ -115,7 +147,7 @@ def test_run_scopes_tiling_to_the_regions_bounding_box_when_given():
     with patch("scraper.pipeline.PlacesClient"), patch(
         "scraper.pipeline.discover_churches", return_value=[]
     ) as discover_churches, patch(
-        "scraper.pipeline._fetch_existing_churches", return_value=[]
+        "scraper.pipeline.fetch_all_existing_churches", return_value=[]
     ), patch("scraper.pipeline.filter_new", return_value=[]), patch(
         "scraper.pipeline.SubmissionClient"
     ) as SubmissionClientCls, patch("scraper.pipeline.ScraperRunClient") as RunClientCls:
@@ -199,7 +231,7 @@ def test_run_defaults_config_and_session_when_not_given():
     with patch("scraper.pipeline.ScraperConfig.from_env", return_value=make_config()), patch(
         "scraper.pipeline.PlacesClient"
     ), patch("scraper.pipeline.discover_churches", return_value=[]), patch(
-        "scraper.pipeline._fetch_existing_churches", return_value=[]
+        "scraper.pipeline.fetch_all_existing_churches", return_value=[]
     ), patch(
         "scraper.pipeline.filter_new", return_value=[]
     ), patch(

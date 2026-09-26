@@ -42,6 +42,7 @@ public class AdminUserSeeder implements CommandLineRunner {
         admin.setEmail(adminEmail);
         admin.setPasswordHash(passwordEncoder.encode(adminPassword));
         admin.setRole(Role.PLATFORM_ADMIN);
+        admin.setDisplayName("Admin");
         userRepository.save(admin);
     }
 }

@@ -1,0 +1,101 @@
+<main class="faith-shell narrow">
+  <a routerLink="/learn">← Learn</a>
+  <p class="eyebrow" style="margin-top: 1.5rem">Denomination quiz</p>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (catalog(); as c) {
+    <p class="muted" aria-live="polite">
+      Question {{ index() + 1 }} of {{ c.dimensions.length }} ·
+      {{
+        question?.category === 'doctrine' ? 'Beliefs' : 'Worship & devotions'
+      }}
+    </p>
+    <progress
+      [value]="index() + 1"
+      [max]="c.dimensions.length"
+      aria-label="Quiz progress"
+    ></progress>
+    @if (question; as q) {
+      <h1 #questionHeading tabindex="-1" style="font-size: 2rem">
+        {{ q.question }}
+      </h1>
+      <details class="card">
+        <summary>Explain this</summary>
+        <p>{{ q.explanation }}</p>
+        <ul>
+          @for (s of q.sources; track s.url) {
+            <li>
+              <a [href]="s.url" target="_blank" rel="noopener noreferrer"
+                >{{ s.title }} ↗</a
+              >
+            </li>
+          }
+        </ul>
+      </details>
+      <fieldset>
+        <legend class="muted">
+          Choose the closest answer. You can change it later.
+        </legend>
+        @for (o of q.options; track o.id) {
+          <label class="option"
+            ><input
+              type="radio"
+              [name]="q.id"
+              [value]="o.id"
+              [checked]="answer(q.id).option === o.id"
+              (change)="choose(q.id, o.id)"
+            /><span>{{ o.label }}</span></label
+          >
+        }
+        <label class="option"
+          ><input
+            type="radio"
+            [name]="q.id"
+            value="unknown"
+            [checked]="answer(q.id).option === 'unknown'"
+            (change)="choose(q.id, 'unknown')"
+          /><span>I’m not sure / skip this question</span></label
+        >
+      </fieldset>
+      @if (answer(q.id).option !== 'unknown') {
+        <label
+          >How important is this for your church?
+          <select
+            [ngModel]="answer(q.id).importance"
+            (ngModelChange)="importance(q.id, $event)"
+          >
+            <option [ngValue]="0">Not important for matching</option>
+            <option [ngValue]="1">Somewhat important</option>
+            <option [ngValue]="2">Very important</option>
+            <option [ngValue]="3">Essential — flag any difference</option>
+          </select>
+        </label>
+        @if (answer(q.id).importance === 3) {
+          <p class="muted">
+            Churches with a difference on this topic will be separated from
+            compatible matches. Missing answers need confirmation.
+          </p>
+        }
+      }
+      <div class="actions">
+        <button [disabled]="index() === 0 || busy()" (click)="move(-1)">
+          Back
+        </button>
+        @if (index() < c.dimensions.length - 1) {
+          <button class="primary" (click)="move(1)">Next →</button>
+        } @else {
+          <button class="primary" [disabled]="busy()" (click)="finish()">
+            {{ busy() ? 'Comparing…' : 'See my results' }}
+          </button>
+        }
+      </div>
+      <p class="muted">
+        Answers stay in this browser tab’s memory until you leave or clear them.
+        Nothing is saved to an account unless you choose to save your results.
+      </p>
+    }
+  } @else if (!error()) {
+    <p role="status">Loading questions…</p>
+  }
+</main>

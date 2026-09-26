@@ -12,14 +12,19 @@ Copy `.env.example` to `.env` and fill in real values before running the server 
 ## Dev servers
 
 ```sh
+npm run dev               # everything at once: docker db + server (:8080) + client (:4200)
+
+# or individually
 npx nx serve server      # Spring Boot API → http://localhost:8080
 npx nx serve client      # Angular dev server → http://localhost:4200, proxies /api to :8080 (apps/client/proxy.conf.json)
-
-# or run everything at once
-npx nx run-many --target=serve --all
+npx nx run-many --target=serve --all   # same as npm run dev, minus the docker/`.env` check
 ```
 
-> `npm run dev` / `npm run dev:alt` are defined in `package.json` (pointing at `scripts/dev.sh` / `scripts/dev-alt.sh`) but those script files don't exist yet — use the `nx serve` commands above until that's fixed. `apps/client/proxy.conf.alt.json` (proxying to `:8081`) suggests the intent was to let the client point at a second server instance; `dev:alt` presumably would serve the client against that proxy config via `--proxy-config apps/client/proxy.conf.alt.json`.
+`npm run dev` (`scripts/dev.sh`) starts the local Postgres container, then runs `nx run-many --target=serve --all`. Its `Ctrl+C` stops both the client and server together.
+
+`npm run dev:alt` (`scripts/dev-alt.sh`) starts a second, independent API instance on `:8081` (`SERVER_PORT=8081`, plain `mvnw spring-boot:run` rather than the `demo` nx target, so it can run alongside the main `npm run dev` server without a port clash) plus the client's `alt-ports` configuration (`:4201`, proxying to `:8081` via `apps/client/proxy.conf.alt.json`). Both instances share the one Postgres container — this gives you two independently-restartable API processes, not a second database, useful for e.g. testing against a server you're about to restart without taking down the other session.
+
+**Note for Spring Boot backend changes specifically:** the `demo`/`server` project has no devtools configured, so neither `npm run dev` nor a plain `npx nx serve server` picks up structural Java changes (new endpoints, changed method signatures) automatically the way the Angular dev server hot-reloads — restart it after backend edits.
 
 ## Testing
 

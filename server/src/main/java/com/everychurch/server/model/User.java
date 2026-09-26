@@ -27,6 +27,13 @@ public class User {
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /** Chosen at registration (required there — see AuthService). Nullable only because
+     *  accounts created before this field existed have none; getDisplayName() falls back
+     *  for those rather than needing a backfill migration. */
+    private String displayName;
+
+    private String avatarUrl;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -42,8 +49,16 @@ public class User {
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
-    /** Local part of the email — what other congregants see instead of the full address. */
+    public String getDisplayNameRaw() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+    public String getAvatarUrl() { return avatarUrl; }
+    public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    /** What other congregants see (chat, member list). The chosen name if set; the
+     *  email's local part as a fallback for accounts from before this field existed. */
     public String getDisplayName() {
+        if (displayName != null && !displayName.isBlank()) return displayName;
         int at = email.indexOf('@');
         return at > 0 ? email.substring(0, at) : email;
     }

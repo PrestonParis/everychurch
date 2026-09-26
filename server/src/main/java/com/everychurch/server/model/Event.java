@@ -3,8 +3,8 @@ package com.everychurch.server.model;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "events")
@@ -25,14 +25,13 @@ public class Event {
 
     private Instant endsAt;
 
-    /** Co-hosting churches; a staff member of any one of them may manage the event. */
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "event_churches",
-        joinColumns = @JoinColumn(name = "event_id"),
-        inverseJoinColumns = @JoinColumn(name = "church_id")
-    )
-    private Set<Church> churches = new HashSet<>();
+    /** Co-hosting churches, each with its own consent state — see EventCoHost's class
+     *  comment. Replaced a plain @ManyToMany in V18 (found in review: no consent was
+     *  required from a named co-host at all). A staff member with MANAGE_EVENTS on any
+     *  one CONFIRMED (or, per EventService.requireCanManage, any) participating church
+     *  may manage the event. */
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private List<EventCoHost> coHosts = new ArrayList<>();
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -49,6 +48,6 @@ public class Event {
     public Instant getEndsAt() { return endsAt; }
     public void setEndsAt(Instant endsAt) { this.endsAt = endsAt; }
 
-    public Set<Church> getChurches() { return churches; }
-    public void setChurches(Set<Church> churches) { this.churches = churches; }
+    public List<EventCoHost> getCoHosts() { return coHosts; }
+    public void setCoHosts(List<EventCoHost> coHosts) { this.coHosts = coHosts; }
 }

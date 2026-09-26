@@ -49,11 +49,13 @@ export class ChurchFormComponent implements OnInit {
   private readonly _importSuccess = signal(false);
   private readonly _loading = signal(false);
   private readonly _saving = signal(false);
+  private readonly _saveError = signal('');
   get importing(): boolean { return this._importing(); }
   get importError(): string { return this._importError(); }
   get importSuccess(): boolean { return this._importSuccess(); }
   get loading(): boolean { return this._loading(); }
   get saving(): boolean { return this._saving(); }
+  get saveError(): string { return this._saveError(); }
 
   readonly DENOMINATIONS = DENOMINATIONS;
 
@@ -142,6 +144,7 @@ export class ChurchFormComponent implements OnInit {
   save() {
     if (this.form.invalid) return;
     this._saving.set(true);
+    this._saveError.set('');
 
     const value = this.form.getRawValue() as unknown as Church;
     const obs =
@@ -151,7 +154,17 @@ export class ChurchFormComponent implements OnInit {
 
     obs.subscribe({
       next: (church) => this.router.navigate(['/churches', church.id]),
-      error: () => this._saving.set(false),
+      error: (err) => {
+        this._saving.set(false);
+        // Editing an unclaimed church is now Platform Admin only (docs/PROMPTS.md) — a
+        // 403 here is a real, expected outcome for anyone else, not just a network blip,
+        // so it needs to actually say something rather than just re-enabling the button.
+        this._saveError.set(
+          err.status === 403
+            ? "You don't have permission to save this church."
+            : (err.error?.error ?? 'Could not save this church. Please try again.')
+        );
+      },
     });
   }
 }

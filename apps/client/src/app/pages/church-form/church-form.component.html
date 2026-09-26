@@ -259,6 +259,9 @@
         </div>
 
         <!-- ── ACTIONS ─────────────────────────────────────── -->
+        @if (saveError) {
+          <p class="text-sm text-red-600 -mt-2">{{ saveError }}</p>
+        }
         <div class="flex items-center gap-4 pb-10">
           <button type="submit" [disabled]="saving || form.invalid"
             class="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">

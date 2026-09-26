@@ -82,10 +82,18 @@ public class SecurityConfig {
                 // public GET rule below (first match wins), otherwise an anonymous request
                 // slips through the security layer and reaches a controller with a null
                 // Authentication (a 500) instead of being rejected here with a 401.
-                .requestMatchers("/api/churches/*/staff/**", "/api/churches/*/members/**", "/api/churches/*/messages/**")
+                .requestMatchers(
+                        "/api/churches/*/staff/**", "/api/churches/*/members/**", "/api/churches/*/messages/**",
+                        "/api/churches/*/favorite", "/api/churches/*/follow")
                     .authenticated()
+                .requestMatchers("/api/churches/*/beliefs/editor").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/learn/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/learn/quiz/evaluate").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/churches/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
+                // Client-safe config only (e.g. the Maps Embed key, restricted by HTTP
+                // referrer in Google Cloud Console, not by secrecy) — see PublicConfigController.
+                .requestMatchers(HttpMethod.GET, "/api/config").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/r/**").permitAll()
                 // The WebSocket handshake is a plain HTTP upgrade a browser won't put an

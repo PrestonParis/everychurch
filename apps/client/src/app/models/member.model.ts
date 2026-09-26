@@ -1,6 +1,7 @@
 export interface Member {
   id: number;
   churchId: number;
+  userId: number;
   displayName: string;
   joinedAt: string;
 }

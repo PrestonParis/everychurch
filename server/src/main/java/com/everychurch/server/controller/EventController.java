@@ -54,6 +54,18 @@ public class EventController {
         eventService.delete(id, currentUser(authentication));
     }
 
+    // Co-host consent (EventCoHost) — only someone with MANAGE_EVENTS on churchId
+    // itself may accept/decline on its behalf, enforced in EventService.respondToCoHost.
+    @PostMapping("/{id}/co-hosts/{churchId}/accept")
+    public EventDto acceptCoHost(@PathVariable Long id, @PathVariable Long churchId, Authentication authentication) {
+        return eventService.respondToCoHost(id, churchId, currentUser(authentication), true);
+    }
+
+    @PostMapping("/{id}/co-hosts/{churchId}/decline")
+    public EventDto declineCoHost(@PathVariable Long id, @PathVariable Long churchId, Authentication authentication) {
+        return eventService.respondToCoHost(id, churchId, currentUser(authentication), false);
+    }
+
     private User currentUser(Authentication authentication) {
         String email = (String) authentication.getPrincipal();
         return userRepository.findByEmail(email)
@@ -69,6 +81,12 @@ public class EventController {
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Map<String, String> handleBadRequest(IllegalArgumentException e) {
+        return Map.of("error", e.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleConflict(IllegalStateException e) {
         return Map.of("error", e.getMessage());
     }
 }

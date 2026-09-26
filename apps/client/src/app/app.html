@@ -1,16 +1,36 @@
-<nav class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200">
+<nav class="sticky top-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-hairline">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-    <a routerLink="/churches" class="text-xl font-bold tracking-tight text-slate-900 hover:text-slate-700 transition-colors">
-      Every<span class="text-indigo-600">Church</span>
+    <a routerLink="/churches" class="flex items-center gap-2 text-xl font-serif font-semibold tracking-tight text-ink hover:opacity-80 transition-opacity">
+      <img src="/logo-icon.png" alt="" class="w-8 h-8 shrink-0" aria-hidden="true" />
+      Every<span class="text-oxblood">Church</span>
     </a>
     <div class="flex items-center gap-3 sm:gap-4">
       <a routerLink="/churches"
-         class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
+         class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
         Browse
       </a>
+      <a routerLink="/learn" class="text-sm font-medium text-ink-muted hover:text-ink hidden sm:block">Learn</a>
+      <a routerLink="/events"
+         class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+        Events
+      </a>
+      @if (authService.isAuthenticated()) {
+        <a routerLink="/feed"
+           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+          Feed
+        </a>
+        <a routerLink="/favorites"
+           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+          Favorites
+        </a>
+        <a routerLink="/messages"
+           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+          Messages
+        </a>
+      }
       <a routerLink="/churches/new"
          aria-label="Add a church"
-         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+         class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
         </svg>
@@ -20,7 +40,7 @@
       @if (authService.currentUser()?.role === 'PLATFORM_ADMIN') {
         <div class="relative" (keydown.escape)="closeAdmin()">
           <button (click)="toggleAdmin()" [attr.aria-expanded]="adminOpen()" aria-haspopup="menu"
-                  class="flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                  class="flex items-center gap-1 text-sm font-medium text-ink-muted hover:text-ink transition-colors">
             Admin
             <svg class="w-3.5 h-3.5 transition-transform" [class.rotate-180]="adminOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -28,28 +48,98 @@
           </button>
           @if (adminOpen()) {
             <div class="fixed inset-0 z-40" (click)="closeAdmin()"></div>
-            <div role="menu" class="absolute right-0 top-full mt-2 z-50 w-52 py-1 rounded-xl bg-white ring-1 ring-slate-200 shadow-lg">
-              <a role="menuitem" routerLink="/admin/claims" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Church claims</a>
-              <a role="menuitem" routerLink="/admin/submissions" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Church submissions</a>
-              <a role="menuitem" routerLink="/admin/volunteer-invites" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Volunteer invites</a>
-              <a role="menuitem" routerLink="/admin/scraper-runs" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Scraper runs</a>
+            <div role="menu" class="absolute right-0 top-full mt-2 z-50 w-52 py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
+              <a role="menuitem" routerLink="/admin/faith" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Quiz &amp; traditions</a>
+              <a role="menuitem" routerLink="/admin/claims" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Church claims</a>
+              <a role="menuitem" routerLink="/admin/submissions" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Church submissions</a>
+              <a role="menuitem" routerLink="/admin/volunteer-invites" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Volunteer invites</a>
+              <a role="menuitem" routerLink="/admin/scraper-runs" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Scraper runs</a>
+              <a role="menuitem" routerLink="/admin/reports" (click)="closeAdmin()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Reports</a>
             </div>
           }
         </div>
       }
 
       @if (authService.isAuthenticated()) {
-        <span class="text-sm text-slate-500 hidden sm:block">{{ authService.currentUser()?.email }}</span>
-        <button (click)="logout()" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-          Log out
-        </button>
+        <div class="relative hidden sm:block" (keydown.escape)="closeAccountMenu()">
+          <button (click)="toggleAccountMenu()" [attr.aria-expanded]="accountMenuOpen()" aria-haspopup="menu"
+                  class="flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors">
+            <app-user-avatar [avatarUrl]="authService.currentUser()?.avatarUrl" [displayName]="authService.currentUser()?.displayName ?? ''" />
+            {{ authService.currentUser()?.displayName }}
+            <svg class="w-3.5 h-3.5 transition-transform" [class.rotate-180]="accountMenuOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          @if (accountMenuOpen()) {
+            <div class="fixed inset-0 z-40" (click)="closeAccountMenu()"></div>
+            <div role="menu" class="absolute right-0 top-full mt-2 z-50 w-44 py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
+              <a role="menuitem" routerLink="/account" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">My Account</a>
+              <button role="menuitem" (click)="logout()" class="w-full text-left px-4 py-2 text-sm text-ink hover:bg-parchment">Log out</button>
+            </div>
+          }
+        </div>
       } @else {
-        <a routerLink="/login" class="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+        <a routerLink="/login" class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
           Log in
         </a>
       }
+
+      <!-- Everything above marked `hidden sm:block` (Browse/Events/Feed/Favorites/
+           Messages/Log in-out) has no other way to be reached below `sm` without
+           this — it used to just disappear on a phone. -->
+      <button (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen()" aria-haspopup="menu"
+              aria-label="Menu"
+              class="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg text-ink-muted hover:text-ink hover:bg-parchment transition-colors">
+        @if (mobileMenuOpen()) {
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        } @else {
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        }
+      </button>
     </div>
   </div>
+
+  @if (mobileMenuOpen()) {
+    <div class="sm:hidden border-t border-hairline bg-surface" role="menu">
+      <div class="max-w-6xl mx-auto px-4 py-2 flex flex-col">
+        <a role="menuitem" routerLink="/churches" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Browse</a>
+        <a role="menuitem" routerLink="/learn" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Learn</a>
+        <a role="menuitem" routerLink="/events" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Events</a>
+        @if (authService.isAuthenticated()) {
+          <a role="menuitem" routerLink="/feed" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Feed</a>
+          <a role="menuitem" routerLink="/favorites" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Favorites</a>
+          <a role="menuitem" routerLink="/messages" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Messages</a>
+        }
+        @if (authService.currentUser()?.role === 'PLATFORM_ADMIN') {
+          <div class="mt-1 pt-1 border-t border-hairline">
+            <p class="px-2 py-1.5 text-xs font-semibold uppercase tracking-widest text-ink-muted/70">Admin</p>
+            <a role="menuitem" routerLink="/admin/faith" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Quiz &amp; traditions</a>
+            <a role="menuitem" routerLink="/admin/claims" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Church claims</a>
+            <a role="menuitem" routerLink="/admin/submissions" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Church submissions</a>
+            <a role="menuitem" routerLink="/admin/volunteer-invites" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Volunteer invites</a>
+            <a role="menuitem" routerLink="/admin/scraper-runs" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Scraper runs</a>
+            <a role="menuitem" routerLink="/admin/reports" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Reports</a>
+          </div>
+        }
+        <div class="mt-1 pt-1 border-t border-hairline">
+          @if (authService.isAuthenticated()) {
+            <div class="flex items-center gap-2 px-2 py-1.5">
+              <app-user-avatar [avatarUrl]="authService.currentUser()?.avatarUrl" [displayName]="authService.currentUser()?.displayName ?? ''" />
+              <p class="text-xs text-ink-muted/70">{{ authService.currentUser()?.displayName }}</p>
+            </div>
+            <a role="menuitem" routerLink="/account" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">My Account</a>
+            <button role="menuitem" (click)="logout()" class="w-full text-left px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Log out</button>
+          } @else {
+            <a role="menuitem" routerLink="/login" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Log in</a>
+          }
+        </div>
+      </div>
+    </div>
+  }
 </nav>
 
 <router-outlet />

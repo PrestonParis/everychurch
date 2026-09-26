@@ -1,8 +1,10 @@
 package com.everychurch.server.controller;
 
 import com.everychurch.server.dto.AuthResponse;
+import com.everychurch.server.dto.ForgotPasswordRequest;
 import com.everychurch.server.dto.LoginRequest;
 import com.everychurch.server.dto.RegisterRequest;
+import com.everychurch.server.dto.ResetPasswordRequest;
 import com.everychurch.server.dto.VolunteerRegisterRequest;
 import com.everychurch.server.service.AuthService;
 import org.springframework.http.HttpStatus;
@@ -36,6 +38,20 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse registerVolunteer(@RequestBody VolunteerRegisterRequest request) {
         return authService.registerVolunteer(request);
+    }
+
+    // Always 200 regardless of whether the email matches an account — a 404 here
+    // would let anyone enumerate registered emails (see AuthService.forgotPassword).
+    @PostMapping("/forgot-password")
+    public Map<String, String> forgotPassword(@RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return Map.of("message", "If that email has an account, a reset link has been sent.");
+    }
+
+    @PostMapping("/reset-password")
+    public Map<String, String> resetPassword(@RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return Map.of("message", "Password reset. You can now log in with your new password.");
     }
 
     @ExceptionHandler(IllegalStateException.class)

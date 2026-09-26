@@ -1,14 +1,7 @@
 # Product Scope — Talent Acquisition & Education
 
-The EveryChurch brief names three pillars: Faith Formation, Talent Acquisition, and Education. Only Faith Formation (plus Church Profiles, the Volunteer program, Vetting, and Promotion) was ever elaborated with concrete features.
+The EveryChurch brief names two pillars: Faith Formation and Education
 
-## Talent Acquisition — decided: not in the product
-
-Confirmed by the project owner: "Talent Acquisition" was a label in a higher-level document this project sits under, not a literal feature to build. **No job board, no staff-hiring flow, nothing labeled "Talent Acquisition," anywhere in EveryChurch.** The options below are kept only as a historical record of what was considered — none of them are being built.
-
-1. ~~Church staff job board.~~ Not building.
-2. ~~Volunteer-to-role pipeline.~~ Not building as a hiring feature. Note: the *Volunteer* role itself is very much in scope (see the Volunteer program in ARCHITECTURE.md and the volunteer-invite auth flow) — it's the recruitment/hiring framing specifically that's dropped, not volunteers.
-3. **Out of scope — confirmed.**
 
 ## Education — options (still open, recommendation stands)
 

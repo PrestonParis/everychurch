@@ -27,7 +27,7 @@ class RedirectControllerTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper objectMapper;
 
     private String authToken() throws Exception {
-        RegisterRequest request = new RegisterRequest("redirect-fixture@example.com", "password123");
+        RegisterRequest request = new RegisterRequest("redirect-fixture@example.com", "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))

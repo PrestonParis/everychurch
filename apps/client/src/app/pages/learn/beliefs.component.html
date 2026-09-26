@@ -1,0 +1,193 @@
+<main class="faith-shell narrow">
+  <a [routerLink]="['/churches', id]">← Church profile</a>
+  <p class="eyebrow" style="margin-top: 1.5rem">Beliefs & practices</p>
+  <h1>{{ profile()?.churchName || 'Church beliefs' }}</h1>
+  @if (error()) {
+    <p role="alert" class="error">{{ error() }}</p>
+  }
+  @if (notice()) {
+    <p role="status" class="notice">{{ notice() }}</p>
+  }
+  @if (catalog(); as c) {
+    @if (editing) {
+      <p>
+        Tell visitors what your church teaches and which practices you offer.
+        Unanswered topics remain unknown; they are never filled from a
+        denomination label automatically.
+      </p>
+      <p class="muted">Questionnaire {{ c.version }}</p>
+      <button (click)="latestQuestions()">Update to latest questions</button>
+      <label
+        >Optional reference tradition<select
+          [(ngModel)]="input.traditionId"
+          (ngModelChange)="confirmed = false"
+        >
+          <option [ngValue]="null">
+            Independent / another tradition / no template
+          </option>
+          @for (t of c.traditions; track t.id) {
+            <option [value]="t.id">{{ t.name }}</option>
+          }
+        </select></label
+      >
+      <button [disabled]="!input.traditionId" (click)="template()">
+        Fill unanswered topics from this reference
+      </button>
+      <p class="muted">
+        Selecting a reference is not verification of affiliation.
+        Church-specific statements may differ and will be shown as such.
+      </p>
+      <div class="actions">
+        <button (click)="preview.set(!preview())">
+          {{ preview() ? 'Continue editing' : 'Preview public statements' }}
+        </button>
+      </div>
+      @if (!preview()) {
+        @for (d of c.dimensions; track d.id) {
+          <section class="card">
+            <h3>{{ d.title }}</h3>
+            <p class="muted">{{ d.explanation }}</p>
+            <label [for]="'position-' + d.id">{{
+              d.category === 'devotion'
+                ? 'What your church offers'
+                : 'Your church’s position'
+            }}</label>
+            <select
+              [id]="'position-' + d.id"
+              [ngModel]="value(d.id)"
+              (ngModelChange)="change(d.id, 'option', $event)"
+            >
+              @for (o of options(d); track o.id) {
+                <option [value]="o.id">{{ o.label }}</option>
+              }
+            </select>
+            @if (differs(d)) {
+              <p class="notice">
+                This differs from the selected reference: {{ reference(d) }}.
+                Visitors will see your church’s own confirmed statement.
+              </p>
+            }
+            <label
+              >Explanation or schedule (optional)<textarea
+                rows="2"
+                maxlength="1500"
+                [ngModel]="note(d.id)"
+                (ngModelChange)="change(d.id, 'note', $event)"
+              ></textarea>
+            </label>
+            <label
+              >Supporting HTTPS source (optional)<input
+                type="url"
+                maxlength="2000"
+                [ngModel]="source(d.id)"
+                (ngModelChange)="change(d.id, 'sourceUrl', $event)"
+            /></label>
+          </section>
+        }
+        <label
+          >Visitor participation guidance<textarea
+            rows="4"
+            maxlength="3000"
+            [(ngModel)]="input.participation"
+            (ngModelChange)="confirmed = false"
+            placeholder="For example, explain Communion participation and whom a visitor should speak with."
+          ></textarea>
+        </label>
+      } @else {
+        <p class="notice">Draft preview — not yet public.</p>
+        @for (d of c.dimensions; track d.id) {
+          <article class="card">
+            <h3>{{ d.title }}</h3>
+            <p>{{ label(d, input) }}</p>
+            <p class="muted">{{ input.answers[d.id]?.note }}</p>
+          </article>
+        }
+        <p>{{ input.participation }}</p>
+      }
+      <label
+        ><input type="checkbox" [(ngModel)]="confirmed" />I have reviewed these
+        answers and confirm they represent this church’s teaching and
+        practices.</label
+      >
+      <p class="muted">
+        Confirm at least five topics to publish. Your display name and
+        confirmation date appear publicly. Other topics may remain unanswered.
+      </p>
+      <div class="actions">
+        <button [disabled]="busy()" (click)="save(false)">Save draft</button
+        ><button
+          class="primary"
+          [disabled]="busy() || !confirmed"
+          (click)="save(true)"
+        >
+          Publish confirmed profile
+        </button>
+      </div>
+      @if (editor(); as e) {
+        <details class="card">
+          <summary>Published revision history ({{ e.history.length }})</summary>
+          @for (p of e.history; track p.revision) {
+            <details>
+              <summary>
+                Revision {{ p.revision }} · {{ p.publishedAt?.slice(0, 10) }} ·
+                {{ p.confirmedBy }}
+              </summary>
+              @for (d of c.dimensions; track d.id) {
+                <p>
+                  <strong>{{ d.title }}:</strong> {{ label(d, p.content)
+                  }}<br /><span class="muted">{{
+                    p.content?.answers?.[d.id]?.note
+                  }}</span>
+                </p>
+              }
+            </details>
+          }
+        </details>
+      }
+    } @else {
+      @if (canEdit()) {
+        <a
+          class="button primary"
+          [routerLink]="['/churches', id, 'beliefs/edit']"
+          >Manage beliefs & practices</a
+        >
+      }
+      @if (profile()?.content; as content) {
+        <p class="notice">
+          Confirmed by {{ profile()?.confirmedBy }} on
+          {{ profile()?.publishedAt?.slice(0, 10) }}. These are this church’s
+          own statements, not independent theological certification.
+        </p>
+        @if (content.participation) {
+          <section class="card">
+            <h3>Before you participate</h3>
+            <p>{{ content.participation }}</p>
+          </section>
+        }
+        @for (d of c.dimensions; track d.id) {
+          <article class="card">
+            <h3>{{ d.title }}</h3>
+            <p>{{ label(d, content) }}</p>
+            <p class="muted">{{ content.answers[d.id]?.note }}</p>
+            @if (content.answers[d.id]?.sourceUrl; as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer"
+                >Supporting statement ↗</a
+              >
+            }
+          </article>
+        }
+      } @else {
+        <p class="notice">
+          This church has not published its beliefs and practices yet. Its
+          denomination label has not been used to fill in answers. Ask the
+          church directly about topics that matter to you.
+        </p>
+      }
+      <a class="button" routerLink="/learn/denomination-quiz"
+        >Explore your own alignment →</a
+      >
+    }
+  } @else if (!error()) {
+    <p role="status">Loading beliefs…</p>
+  }
+</main>

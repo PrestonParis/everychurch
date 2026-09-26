@@ -2,6 +2,7 @@ package com.everychurch.server.security;
 
 import com.everychurch.server.model.User;
 import com.everychurch.server.repository.UserRepository;
+import com.everychurch.server.service.DirectMessageService;
 import com.everychurch.server.service.MemberService;
 import io.jsonwebtoken.Claims;
 import org.springframework.messaging.Message;
@@ -42,15 +43,25 @@ import java.util.regex.Pattern;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final Pattern CHAT_TOPIC = Pattern.compile("^/topic/churches/(\\d+)/chat$");
+    // Canonical form only — DirectMessageService.topicFor always puts the lower id
+    // first, so a given pair has exactly one topic regardless of who subscribes.
+    private static final Pattern DIRECT_MESSAGE_TOPIC = Pattern.compile("^/topic/direct-messages/(\\d+)-(\\d+)$");
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final MemberService memberService;
+    private final DirectMessageService directMessageService;
 
-    public StompAuthChannelInterceptor(JwtService jwtService, UserRepository userRepository, MemberService memberService) {
+    public StompAuthChannelInterceptor(
+        JwtService jwtService,
+        UserRepository userRepository,
+        MemberService memberService,
+        DirectMessageService directMessageService
+    ) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.memberService = memberService;
+        this.directMessageService = directMessageService;
     }
 
     @Override
@@ -61,7 +72,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
         switch (command) {
             case CONNECT -> authenticate(accessor);
-            case SUBSCRIBE -> requireChatAccess(accessor);
+            case SUBSCRIBE -> requireTopicAccess(accessor);
             case SEND -> requireAppDestination(accessor);
             default -> { /* DISCONNECT, ACK, heartbeats, etc. need no check */ }
         }
@@ -86,18 +97,35 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             user.getEmail(), null, List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))));
     }
 
-    private void requireChatAccess(StompHeaderAccessor accessor) {
+    private void requireTopicAccess(StompHeaderAccessor accessor) {
         String destination = accessor.getDestination();
-        Matcher matcher = destination == null ? null : CHAT_TOPIC.matcher(destination);
-        if (matcher == null || !matcher.matches()) {
-            throw new MessagingException("Only church chat topics can be subscribed to");
+        Matcher chatMatch = destination == null ? null : CHAT_TOPIC.matcher(destination);
+        if (chatMatch != null && chatMatch.matches()) {
+            User user = currentUser(accessor);
+            long churchId = Long.parseLong(chatMatch.group(1));
+            if (!memberService.canAccessGroup(churchId, user)) {
+                throw new MessagingException("Only members of this church can join its chat");
+            }
+            return;
         }
 
-        User user = currentUser(accessor);
-        long churchId = Long.parseLong(matcher.group(1));
-        if (!memberService.canAccessGroup(churchId, user)) {
-            throw new MessagingException("Only members of this church can join its chat");
+        Matcher dmMatch = destination == null ? null : DIRECT_MESSAGE_TOPIC.matcher(destination);
+        if (dmMatch != null && dmMatch.matches()) {
+            User user = currentUser(accessor);
+            long userA = Long.parseLong(dmMatch.group(1));
+            long userB = Long.parseLong(dmMatch.group(2));
+            // Compare against the canonical topic string (DirectMessageService.topicFor
+            // is the one place that ordering is decided) rather than re-deriving "lower
+            // id first" here — a non-canonical destination is rejected as a mismatch.
+            boolean canonical = destination.equals(directMessageService.topicFor(userA, userB));
+            boolean participant = user.getId() == userA || user.getId() == userB;
+            if (!canonical || !participant) {
+                throw new MessagingException("You can only join your own conversations");
+            }
+            return;
         }
+
+        throw new MessagingException("Only church chat or direct-message topics can be subscribed to");
     }
 
     private void requireAppDestination(StompHeaderAccessor accessor) {

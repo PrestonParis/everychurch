@@ -29,7 +29,7 @@ class ClaimAndStaffFlowTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper objectMapper;
 
     private String register(String email, String password) throws Exception {
-        RegisterRequest request = new RegisterRequest(email, password);
+        RegisterRequest request = new RegisterRequest(email, password, "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))
@@ -153,6 +153,39 @@ class ClaimAndStaffFlowTest extends AbstractIntegrationTest {
                 .header("Authorization", "Bearer " + ownerToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void meStaffChurchesListsOnlyTheCallersOwnMemberships() throws Exception {
+        String ownerToken = register("staffme-owner@example.com", "password123");
+        long churchId = createChurch(ownerToken, "Staff Me Fixture Church");
+
+        String claimBody = mockMvc.perform(post("/api/churches/" + churchId + "/claims")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType("application/json")
+                .content("{}"))
+            .andReturn().getResponse().getContentAsString();
+        long claimId = objectMapper.readTree(claimBody).get("id").asLong();
+        mockMvc.perform(post("/api/admin/claims/" + claimId + "/approve")
+                .header("Authorization", "Bearer " + adminToken()))
+            .andExpect(status().isOk());
+
+        // owner sees their own ownership row
+        mockMvc.perform(get("/api/users/me/staff-churches").header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].churchId").value(churchId))
+            .andExpect(jsonPath("$[0].isOwner").value(true));
+
+        // a stranger who staffs nothing sees an empty list, not the owner's row
+        String strangerToken = register("staffme-stranger@example.com", "password123");
+        mockMvc.perform(get("/api/users/me/staff-churches").header("Authorization", "Bearer " + strangerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(0));
+
+        // unauthenticated is rejected, not treated as "no memberships"
+        mockMvc.perform(get("/api/users/me/staff-churches"))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test

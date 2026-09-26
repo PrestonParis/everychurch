@@ -25,6 +25,7 @@
         All churches
       </a>
 
+      <a [routerLink]="['/churches',church.id,'beliefs']" class="inline-flex px-4 py-2 mb-6 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium">Beliefs &amp; practices →</a>
       <div class="flex items-start gap-6 flex-wrap">
         <!-- Avatar -->
         @if (church.imageUrl) {
@@ -39,7 +40,11 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-start justify-between gap-4 flex-wrap">
             <div>
-              <h1 class="text-3xl sm:text-4xl font-bold tracking-tight leading-tight mb-3">{{ church.name }}</h1>
+              <div class="flex items-center gap-3 mb-3 flex-wrap">
+                <h1 class="text-3xl sm:text-4xl font-bold tracking-tight leading-tight">{{ church.name }}</h1>
+                <app-favorite-button [churchId]="church.id!" [withBacking]="true" />
+                <app-follow-button [churchId]="church.id!" />
+              </div>
 
               <div class="flex items-center gap-3 flex-wrap">
                 @if (church.denomination) {
@@ -59,29 +64,42 @@
               </div>
             </div>
 
-            <!-- Edit + management links: only for people the server would let through
-                 (staff/owner/admin, or anyone while the listing is still unclaimed) -->
+            <!-- Edit + management links: each gated on the specific permission it
+                 needs, not a blanket "is staff" — someone appointed for one thing
+                 (e.g. events) shouldn't be offered controls the server would reject. -->
             @if (canManage) {
               <div class="flex items-center gap-2 flex-wrap sm:justify-end">
-                <a [routerLink]="['/churches', church.id, 'edit']"
-                   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                  </svg>
-                  Edit
-                </a>
-                <a [routerLink]="['/churches', church.id, 'images']"
-                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                  Photos
-                </a>
-                <a [routerLink]="['/churches', church.id, 'sermons']"
-                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                  Sermons
-                </a>
-                <a [routerLink]="['/events/new']" [queryParams]="{ churchId: church.id }"
-                   class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
-                  + Event
-                </a>
+                @if (canEditProfile) {
+                  <a [routerLink]="['/churches', church.id, 'edit']"
+                     class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Edit
+                  </a>
+                  <a [routerLink]="['/churches', church.id, 'images']"
+                     class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    Photos
+                  </a>
+                }
+                @if (canManageSermons) {
+                  <a [routerLink]="['/churches', church.id, 'sermons']"
+                     class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    Sermons
+                  </a>
+                }
+                @if (canManageEvents) {
+                  <a [routerLink]="['/events/new']" [queryParams]="{ churchId: church.id }"
+                     class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    + Event
+                  </a>
+                }
+                @if (canManageStaff) {
+                  <a [routerLink]="['/churches', church.id, 'staff']"
+                     class="inline-flex items-center px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+                    Staff
+                  </a>
+                }
               </div>
             }
           </div>
@@ -240,6 +258,9 @@
             </div>
           }
 
+          <!-- Posts: the follow feature's content -->
+          <app-church-posts [churchId]="church.id!" [canManage]="canManagePosts" />
+
           <!-- Community: join/leave, member list, group chat -->
           <app-church-community [churchId]="church.id!" />
 
@@ -250,6 +271,17 @@
 
           <!-- Claim: how an unclaimed listing gets an owner -->
           <app-church-claim [churchId]="church.id!" [claimed]="church.claimed === true" />
+
+          <!-- Map: embedded (if Maps Embed is configured) + a directions link (always,
+               no key needed) — see ChurchMapComponent -->
+          <app-church-map
+            [name]="church.name"
+            [address]="church.address"
+            [city]="church.city"
+            [state]="church.state"
+            [zipCode]="church.zipCode"
+            [latitude]="church.latitude"
+            [longitude]="church.longitude" />
 
           <!-- Details -->
           @if (church.denomination) {

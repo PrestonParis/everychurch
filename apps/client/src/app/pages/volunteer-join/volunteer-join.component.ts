@@ -18,6 +18,7 @@ export class VolunteerJoinComponent {
     code: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     password: ['', [Validators.required, Validators.minLength(8)]],
+    displayName: ['', Validators.required],
   });
 
   // Signal-backed: the app is zoneless, so a plain field assigned in an HTTP callback
@@ -32,8 +33,8 @@ export class VolunteerJoinComponent {
     this._submitting.set(true);
     this._error.set('');
 
-    const { code, email, password } = this.form.getRawValue();
-    this.authService.registerVolunteer(code!, email!, password!).subscribe({
+    const { code, email, password, displayName } = this.form.getRawValue();
+    this.authService.registerVolunteer(code!, email!, password!, displayName!).subscribe({
       next: () => this.router.navigate(['/churches']),
       error: (err) => {
         this._submitting.set(false);

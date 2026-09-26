@@ -1,0 +1,52 @@
+<div class="min-h-screen bg-parchment">
+  <div class="bg-surface border-b border-hairline">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+      <h1 class="text-3xl font-serif font-semibold text-ink mb-1">Feed</h1>
+      <p class="text-ink-muted text-sm">Updates from churches you follow.</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    @if (loading()) {
+      <div class="flex justify-center py-24">
+        <div class="w-8 h-8 rounded-full border-4 border-oxblood border-t-transparent animate-spin"></div>
+      </div>
+    } @else if (error()) {
+      <p class="text-sm text-ink-muted text-center py-24">Could not load your feed.</p>
+    } @else if (posts().length === 0) {
+      <div class="text-center py-24">
+        <p class="text-ink-muted text-lg mb-2">Nothing here yet.</p>
+        <p class="text-sm text-ink-muted mb-4">Follow a church to see its posts here.</p>
+        <a routerLink="/churches" class="text-oxblood text-sm font-medium hover:underline">Browse churches →</a>
+      </div>
+    } @else {
+      <div class="space-y-4">
+        @for (post of posts(); track post.id) {
+          <div class="bg-surface rounded-2xl ring-1 ring-hairline p-5">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="w-9 h-9 rounded-lg bg-gold/10 text-oxblood font-bold text-xs flex items-center justify-center uppercase flex-shrink-0">
+                {{ post.churchName[0] }}
+              </span>
+              <div class="min-w-0">
+                <a [routerLink]="['/churches', post.churchId]" class="font-semibold text-ink hover:text-oxblood transition-colors text-sm truncate block">
+                  {{ post.churchName }}
+                </a>
+                <span class="text-xs text-ink-muted">{{ post.authorDisplayName }} · {{ formatDate(post.createdAt) }}</span>
+              </div>
+            </div>
+            <p class="text-sm text-ink whitespace-pre-wrap break-words">{{ post.body }}</p>
+          </div>
+        }
+      </div>
+
+      @if (hasMore()) {
+        <div class="text-center mt-6">
+          <button (click)="loadMore()" [disabled]="loadingMore()"
+                  class="text-sm font-medium text-oxblood hover:text-oxblood-dark disabled:opacity-50">
+            {{ loadingMore() ? 'Loading…' : 'Load more' }}
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

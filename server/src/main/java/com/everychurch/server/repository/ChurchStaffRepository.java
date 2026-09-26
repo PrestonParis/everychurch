@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface ChurchStaffRepository extends JpaRepository<ChurchStaff, Long> {
     List<ChurchStaff> findByChurchId(Long churchId);
+    List<ChurchStaff> findByUserId(Long userId);
     Optional<ChurchStaff> findByChurchIdAndUserId(Long churchId, Long userId);
     boolean existsByChurchIdAndUserId(Long churchId, Long userId);
 }

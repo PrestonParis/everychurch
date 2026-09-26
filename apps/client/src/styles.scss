@@ -3,3 +3,16 @@
 @tailwind utilities;
 
 /* You can add global styles to this file, and also import other style files */
+
+@layer base {
+  body {
+    @apply bg-parchment text-ink font-sans;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-serif;
+  }
+}

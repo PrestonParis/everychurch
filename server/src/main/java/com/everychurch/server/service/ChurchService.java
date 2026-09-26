@@ -16,8 +16,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 
 @Service
 @Transactional
@@ -40,14 +43,32 @@ public class ChurchService {
     // Only page/size are taken from the incoming Pageable, deliberately dropping any
     // Sort it carries (the controller's @PageableDefault(sort = "name") included):
     // repo.search's native SQL already fully owns ordering (relevance when searching,
-    // name otherwise), and Spring Data's native-query support for splicing an
-    // additional ORDER BY from Pageable.getSort() on top of a query that already has
-    // one is exactly the kind of fragile, driver-version-dependent behavior worth
-    // avoiding rather than relying on.
+    // distance/seeded-shuffle otherwise), and Spring Data's native-query support for
+    // splicing an additional ORDER BY from Pageable.getSort() on top of a query that
+    // already has one is exactly the kind of fragile, driver-version-dependent behavior
+    // worth avoiding rather than relying on.
+    //
+    // seed/lat/lng only affect ordering when query is blank (see repo.search's ORDER BY):
+    // lat+lng (when the client already knows the user's location) sort nearest-first;
+    // otherwise seed gives a stable-per-browser-session shuffle instead of always
+    // alphabetical. Harmless to pass through unconditionally when a query IS present —
+    // the native query ignores them in that branch.
     @Transactional(readOnly = true)
-    public Page<ChurchDto> search(String query, String denomination, String state, String city, Pageable pageable) {
+    public Page<ChurchDto> search(
+        String query, String denomination, String state, String city, String seed, Double lat, Double lng, Pageable pageable
+    ) {
         Pageable pageOnly = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
-        return repo.search(query, denomination, state, city, pageOnly).map(this::toSummaryDto);
+        return repo.search(query, denomination, state, city, seed, lat, lng, pageOnly).map(this::toSummaryDto);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> suggestCities(String prefix, String state) {
+        return repo.suggestCities(prefix, state);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> suggestStates(String prefix) {
+        return repo.suggestStates(prefix);
     }
 
     @Transactional(readOnly = true)
@@ -69,10 +90,16 @@ public class ChurchService {
         Church church = repo.findById(id)
             .orElseThrow(() -> new NoSuchElementException("Church not found: " + id));
 
-        // Once claimed, only the owner/staff with EDIT_PROFILE (or a Platform Admin) may edit —
-        // an unclaimed church has no owner yet, so anyone authenticated can still set it up.
+        // Once claimed, only the owner/staff with EDIT_PROFILE (or a Platform Admin) may edit.
+        // An unclaimed church has no owner yet — that USED to mean any authenticated user
+        // could edit it, but per project-owner feedback (docs/PROMPTS.md) that's now
+        // Platform Admin only; a per-church "appointed admin" only exists once claimed
+        // (ChurchStaff), so it can't apply here. Regular contributors still have a path in:
+        // the ChurchSubmission review queue (volunteers propose, an admin approves).
         if (church.isClaimed()) {
             requirePermission(id, requester, ChurchPermission.EDIT_PROFILE);
+        } else {
+            requirePlatformAdmin(requester, "Only a Platform Admin can edit an unclaimed church");
         }
 
         applyDto(church, dto);
@@ -97,12 +124,24 @@ public class ChurchService {
             .orElseThrow(() -> new NoSuchElementException("Church not found: " + id));
 
         // Deleting is more destructive than editing — once claimed, only the owner
-        // (not just any staff member) or a Platform Admin may do it.
+        // (not just any staff member) or a Platform Admin may do it. An unclaimed
+        // church has no owner to check, but it's NOT therefore open season: this used
+        // to fall through with no check at all, so any authenticated user could delete
+        // any of the ~42k unclaimed bulk-imported churches. Same rule as update()'s
+        // unclaimed branch — Platform Admin only.
         if (church.isClaimed()) {
             requireOwner(id, requester);
+        } else {
+            requirePlatformAdmin(requester, "Only a Platform Admin can delete an unclaimed church");
         }
 
         repo.deleteById(id);
+    }
+
+    private void requirePlatformAdmin(User requester, String message) {
+        if (requester.getRole() != Role.PLATFORM_ADMIN) {
+            throw new AccessDeniedException(message);
+        }
     }
 
     private void requirePermission(Long churchId, User requester, ChurchPermission permission) {
@@ -174,6 +213,51 @@ public class ChurchService {
                 c.getServiceTimes().add(s);
             }
         }
+        c.setServiceSummary(buildServiceSummary(dto.serviceTimes()));
+    }
+
+    private static final List<String> DAY_ORDER =
+        List.of("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("h:mm a");
+
+    /**
+     * A short, cheap-to-read summary like "Sundays 9:00 AM & 11:00 AM +1 more" — every time
+     * on the earliest weekday (Sunday first), plus a count of how many other days also have
+     * one. Recomputed here (write time) rather than read time so the list endpoint can
+     * return it without ever touching the LAZY serviceTimes collection.
+     */
+    private String buildServiceSummary(List<ServiceTimeDto> times) {
+        if (times == null || times.isEmpty()) return null;
+
+        ServiceTimeDto first = times.stream()
+            .filter(t -> t.dayOfWeek() != null && t.time() != null)
+            .min(Comparator.comparingInt((ServiceTimeDto t) -> {
+                int i = DAY_ORDER.indexOf(t.dayOfWeek());
+                return i < 0 ? DAY_ORDER.size() : i;
+            }).thenComparing(ServiceTimeDto::time))
+            .orElse(null);
+        if (first == null) return null;
+
+        List<String> sameDay = times.stream()
+            .filter(t -> first.dayOfWeek().equals(t.dayOfWeek()) && t.time() != null)
+            .map(ServiceTimeDto::time)
+            .sorted()
+            .map(this::formatTime)
+            .toList();
+
+        long otherDays = times.stream()
+            .map(ServiceTimeDto::dayOfWeek).filter(Objects::nonNull).distinct().count() - 1;
+
+        String summary = first.dayOfWeek() + "s " + String.join(" & ", sameDay);
+        return otherDays > 0 ? summary + " +" + otherDays + " more" : summary;
+    }
+
+    private String formatTime(String hhmm) {
+        try {
+            return java.time.LocalTime.parse(hhmm).format(TIME_FORMAT);
+        } catch (Exception e) {
+            return hhmm; // an unparsable value (shouldn't happen via the form, but data can be messy) — show it as-is rather than dropping it
+        }
     }
 
     private ChurchDto toDto(Church c) {
@@ -186,8 +270,15 @@ public class ChurchService {
             c.getPhone(), c.getEmail(), c.getWebsite(),
             c.getDescription(), c.getImageUrl(), c.getPastor(),
             c.getFacebook(), c.getInstagram(), c.getYoutube(),
-            c.isClaimed(), c.getLatitude(), c.getLongitude(), times
+            c.isClaimed(), c.getLatitude(), c.getLongitude(), c.getServiceSummary(), times
         );
+    }
+
+    /** Public wrapper around {@link #toSummaryDto} for other services that already have
+     *  a loaded {@link Church} in hand and just need the same card-view shape the list/
+     *  search endpoints use — FavoriteService.listMyFavorites, at the moment. */
+    public ChurchDto summaryOf(Church c) {
+        return toSummaryDto(c);
     }
 
     // Used for list/search/nearest results: never touches the (now-LAZY)
@@ -199,8 +290,21 @@ public class ChurchService {
             c.getPhone(), c.getEmail(), c.getWebsite(),
             c.getDescription(), c.getImageUrl(), c.getPastor(),
             c.getFacebook(), c.getInstagram(), c.getYoutube(),
-            c.isClaimed(), c.getLatitude(), c.getLongitude(), List.of()
+            c.isClaimed(), c.getLatitude(), c.getLongitude(), c.getServiceSummary(), List.of()
         );
+    }
+
+    /**
+     * Near-name-matches in the same city or zip, excluding the church itself when checking
+     * an existing one. A hint for a human (admin creating directly, or reviewing a
+     * ChurchSubmission), not a hard block — a false positive shouldn't stop a real church
+     * from being listed, so this never blocks create/update, only surfaces candidates.
+     */
+    @Transactional(readOnly = true)
+    public List<ChurchDto> findPossibleDuplicates(String name, String city, String zipCode, Long excludeId) {
+        if (name == null || name.isBlank()) return List.of();
+        return repo.findPossibleDuplicates(name.trim(), city == null ? "" : city, zipCode == null ? "" : zipCode, excludeId)
+            .stream().map(this::toSummaryDto).toList();
     }
 
     private String fullAddress(Church c) {

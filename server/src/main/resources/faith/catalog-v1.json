@@ -1,0 +1,1029 @@
+{
+  "version": "2026-09-v1",
+  "rulesVersion": "alignment-v1",
+  "notice": "An educational starting point, not a declaration of religious identity. Reference profiles are summaries of the linked sources, not endorsements by those churches. Local information is only confirmed when published by a church representative.",
+  "dimensions": [
+    {
+      "id": "godhead",
+      "title": "God and the Trinity",
+      "question": "Which understanding of God is closest to your belief?",
+      "explanation": "These statements describe different understandings of God, not how strongly someone believes.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "trinity",
+          "label": "One God in three distinct persons: Father, Son and Holy Spirit",
+          "group": "trinity"
+        },
+        {
+          "id": "distinct",
+          "label": "Father, Son and Holy Ghost are distinct beings united in purpose",
+          "group": "distinct"
+        },
+        {
+          "id": "oneness",
+          "label": "One God revealed as Father, Son and Holy Spirit, rather than three distinct persons",
+          "group": "oneness"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "Latter-day Saint Articles of Faith",
+          "url": "https://www.churchofjesuschrist.org/study/scriptures/pgp/a-of-f/1?lang=eng"
+        }
+      ]
+    },
+    {
+      "id": "scripture",
+      "title": "Scripture",
+      "question": "Which description of Scripture is closest to your belief?",
+      "explanation": "This asks about the place of Scripture. The next question asks who interprets it authoritatively.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "bible",
+          "label": "The Bible is the uniquely authoritative written Scripture",
+          "group": "bible"
+        },
+        {
+          "id": "additional",
+          "label": "Other revealed books are Scripture alongside the Bible",
+          "group": "additional"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "Latter-day Saint Articles of Faith",
+          "url": "https://www.churchofjesuschrist.org/study/scriptures/pgp/a-of-f/1?lang=eng"
+        }
+      ]
+    },
+    {
+      "id": "authority",
+      "title": "Teaching authority",
+      "question": "How should the church resolve questions of Christian teaching?",
+      "explanation": "All these approaches value Scripture; they differ over the authority of tradition and church teaching.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "scripture",
+          "label": "Scripture is the final authority over church traditions",
+          "group": "scripture"
+        },
+        {
+          "id": "tradition",
+          "label": "Scripture is understood within authoritative apostolic tradition",
+          "group": "tradition"
+        },
+        {
+          "id": "magisterium",
+          "label": "Scripture and apostolic tradition are interpreted by the teaching office in communion with the pope",
+          "group": "tradition"
+        },
+        {
+          "id": "revelation",
+          "label": "Scripture and continuing revelation through living prophets",
+          "group": "revelation"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        },
+        {
+          "title": "Latter-day Saint Articles of Faith",
+          "url": "https://www.churchofjesuschrist.org/study/scriptures/pgp/a-of-f/1?lang=eng"
+        }
+      ]
+    },
+    {
+      "id": "baptism-recipients",
+      "title": "Who is baptized",
+      "question": "Who should receive baptism?",
+      "explanation": "Infant baptism and baptism after a personal profession of faith express different understandings of initiation.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "believers",
+          "label": "People who personally profess faith",
+          "group": "believers"
+        },
+        {
+          "id": "infants",
+          "label": "Infants as well as people who personally profess faith",
+          "group": "infants"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "United Methodist beliefs",
+          "url": "https://www.umc.org/content/what-we-believe-what-it-means-to-be-united-methodist"
+        }
+      ]
+    },
+    {
+      "id": "baptism-meaning",
+      "title": "Meaning of baptism",
+      "question": "What do you believe baptism does?",
+      "explanation": "The word symbol does not always mean merely symbolic. Choose the statement closest to your understanding.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "sign",
+          "label": "An act of obedience and public testimony to faith",
+          "group": "sign"
+        },
+        {
+          "id": "grace",
+          "label": "A means through which God gives grace and brings us into new life",
+          "group": "sacramental"
+        },
+        {
+          "id": "covenant",
+          "label": "A sign and seal of God’s covenant, received within the community",
+          "group": "sacramental"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "LCMS doctrinal statement",
+          "url": "https://www.lcms.org/about/beliefs/doctrine/brief-statement-of-lcms-doctrinal-position"
+        },
+        {
+          "title": "Presbyterian Church (USA): Sacraments",
+          "url": "https://pcusa.org/about-pcusa/agencies-entities/life-witness/ministry-areas/theology-worship/worship/sacraments"
+        }
+      ]
+    },
+    {
+      "id": "baptism-mode",
+      "title": "How baptism is administered",
+      "question": "Which forms of baptism would you accept?",
+      "explanation": "This is separate from who is baptized or what baptism means.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "immersion",
+          "label": "Immersion only",
+          "group": "immersion"
+        },
+        {
+          "id": "several",
+          "label": "Immersion, pouring or sprinkling",
+          "group": "several"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "The Episcopal Church: What We Believe",
+          "url": "https://www.episcopalchurch.org/who-we-are/what-we-believe/"
+        }
+      ]
+    },
+    {
+      "id": "communion",
+      "title": "Meaning of Communion",
+      "question": "Which description of Communion is closest to your belief?",
+      "explanation": "Eucharist, Communion and Lord’s Supper name the same central Christian meal. These choices summarize distinct teachings; explanations matter.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "memorial",
+          "label": "A memorial meal symbolizing Christ’s death",
+          "group": "memorial"
+        },
+        {
+          "id": "spiritual",
+          "label": "A real participation in Christ through the Holy Spirit",
+          "group": "spiritual"
+        },
+        {
+          "id": "presence",
+          "label": "The bread and wine truly become Christ’s body and blood, received as a mystery",
+          "group": "real"
+        },
+        {
+          "id": "transubstantiation",
+          "label": "The substance of bread and wine becomes Christ’s body and blood",
+          "group": "real"
+        },
+        {
+          "id": "union",
+          "label": "Christ’s body and blood are truly present with the bread and wine",
+          "group": "real"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        },
+        {
+          "title": "LCMS doctrinal statement",
+          "url": "https://www.lcms.org/about/beliefs/doctrine/brief-statement-of-lcms-doctrinal-position"
+        },
+        {
+          "title": "Presbyterian Church (USA): Sacraments",
+          "url": "https://pcusa.org/about-pcusa/agencies-entities/life-witness/ministry-areas/theology-worship/worship/sacraments"
+        },
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        }
+      ]
+    },
+    {
+      "id": "gifts",
+      "title": "Spiritual gifts",
+      "question": "How do you understand gifts such as prophecy, tongues and healing today?",
+      "explanation": "Believing that gifts continue does not necessarily mean expecting them at every service.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "continue",
+          "label": "These gifts can continue today",
+          "group": "continue"
+        },
+        {
+          "id": "ceased",
+          "label": "The apostolic sign gifts are no longer ordinarily given",
+          "group": "ceased"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Assemblies of God: Fundamental Truths",
+          "url": "https://ag.org/beliefs/statement-of-fundamental-truths"
+        }
+      ]
+    },
+    {
+      "id": "tongues",
+      "title": "Spirit baptism and tongues",
+      "question": "Must baptism in the Holy Spirit initially be evidenced by speaking in tongues?",
+      "explanation": "This is more specific than whether someone believes tongues can occur.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes",
+          "group": "yes"
+        },
+        {
+          "id": "no",
+          "label": "No",
+          "group": "no"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Assemblies of God: Fundamental Truths",
+          "url": "https://ag.org/beliefs/statement-of-fundamental-truths"
+        }
+      ]
+    },
+    {
+      "id": "governance",
+      "title": "Church leadership",
+      "question": "Which form of church leadership do you seek?",
+      "explanation": "Local leadership and wider church authority are related but distinct from worship style.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "congregation",
+          "label": "An autonomous congregation",
+          "group": "congregation"
+        },
+        {
+          "id": "elders",
+          "label": "Elders and regional assemblies",
+          "group": "elders"
+        },
+        {
+          "id": "bishops",
+          "label": "Bishops in apostolic succession",
+          "group": "episcopal"
+        },
+        {
+          "id": "pope",
+          "label": "Bishops in communion with the pope",
+          "group": "episcopal"
+        },
+        {
+          "id": "connection",
+          "label": "A connected church with shared regional oversight",
+          "group": "connection"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        },
+        {
+          "title": "Presbyterian Church (USA): Sacraments",
+          "url": "https://pcusa.org/about-pcusa/agencies-entities/life-witness/ministry-areas/theology-worship/worship/sacraments"
+        },
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        },
+        {
+          "title": "United Methodist beliefs",
+          "url": "https://www.umc.org/content/what-we-believe-what-it-means-to-be-united-methodist"
+        }
+      ]
+    },
+    {
+      "id": "saints",
+      "title": "Intercession of saints",
+      "question": "Would you affirm asking departed saints to pray for us?",
+      "explanation": "Catholic and Orthodox teaching distinguishes asking for intercession from worship of God.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "yes",
+          "label": "Yes",
+          "group": "yes"
+        },
+        {
+          "id": "no",
+          "label": "No",
+          "group": "no"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Catechism: Mary, §971",
+          "url": "https://www.vatican.va/content/catechism/en/part_one/section_two/chapter_three/article_9/paragraph_6_mary_-_mother_of_christ%2C_mother_of_the_church.html"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        }
+      ]
+    },
+    {
+      "id": "confession",
+      "title": "Confession",
+      "question": "What place should confession to a priest have?",
+      "explanation": "This asks about sacramental confession, not whether Christians should admit wrongdoing or seek counsel.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "sacrament",
+          "label": "It should be available as a sacramental practice",
+          "group": "sacrament"
+        },
+        {
+          "id": "direct",
+          "label": "Confession to God does not require a priestly sacrament",
+          "group": "direct"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        },
+        {
+          "title": "LCMS doctrinal statement",
+          "url": "https://www.lcms.org/about/beliefs/doctrine/brief-statement-of-lcms-doctrinal-position"
+        }
+      ]
+    },
+    {
+      "id": "sabbath",
+      "title": "Sabbath observance",
+      "question": "Is observance of the seventh-day Sabbath binding for Christians?",
+      "explanation": "This concerns belief about Sabbath, not which day is convenient to attend.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "seventh",
+          "label": "Yes, the seventh-day Sabbath should be observed",
+          "group": "seventh"
+        },
+        {
+          "id": "other",
+          "label": "No, Christians may gather on Sunday without that requirement",
+          "group": "other"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Seventh-day Adventist beliefs",
+          "url": "https://adventist.org/beliefs"
+        },
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        }
+      ]
+    },
+    {
+      "id": "salvation",
+      "title": "Grace and faith",
+      "question": "Which statement best describes your understanding of salvation?",
+      "explanation": "These are brief summaries, not a test of devotion. All listed Christian traditions speak of God’s grace; their accounts differ.",
+      "category": "doctrine",
+      "options": [
+        {
+          "id": "faith",
+          "label": "Justification is by grace through faith alone; good works follow as its fruit",
+          "group": "faith"
+        },
+        {
+          "id": "participation",
+          "label": "Salvation is by grace, lived through faith, love and participation in the life of Christ",
+          "group": "participation"
+        }
+      ],
+      "sources": [
+        {
+          "title": "LCMS doctrinal statement",
+          "url": "https://www.lcms.org/about/beliefs/doctrine/brief-statement-of-lcms-doctrinal-position"
+        },
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        }
+      ]
+    },
+    {
+      "id": "worship",
+      "title": "Pattern of worship",
+      "question": "What pattern of worship would you seek?",
+      "explanation": "A congregation may offer different services. This preference does not determine its doctrine.",
+      "category": "practice",
+      "options": [
+        {
+          "id": "liturgy",
+          "label": "A structured historic liturgy",
+          "group": "liturgy"
+        },
+        {
+          "id": "flexible",
+          "label": "A flexible service centered on preaching and prayer",
+          "group": "flexible"
+        },
+        {
+          "id": "both",
+          "label": "I would enjoy either",
+          "group": "both"
+        }
+      ],
+      "sources": [
+        {
+          "title": "The Episcopal Church: What We Believe",
+          "url": "https://www.episcopalchurch.org/who-we-are/what-we-believe/"
+        },
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        }
+      ]
+    },
+    {
+      "id": "communion-frequency",
+      "title": "Communion frequency",
+      "question": "How often would you like Communion to be offered?",
+      "explanation": "Local schedules must be confirmed by the congregation.",
+      "category": "practice",
+      "options": [
+        {
+          "id": "weekly",
+          "label": "Weekly or more",
+          "group": "weekly"
+        },
+        {
+          "id": "monthly",
+          "label": "Approximately monthly",
+          "group": "monthly"
+        },
+        {
+          "id": "occasional",
+          "label": "Less often",
+          "group": "occasional"
+        }
+      ],
+      "sources": [
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        },
+        {
+          "title": "Presbyterian Church (USA): Sacraments",
+          "url": "https://pcusa.org/about-pcusa/agencies-entities/life-witness/ministry-areas/theology-worship/worship/sacraments"
+        }
+      ]
+    },
+    {
+      "id": "rosary",
+      "title": "Rosary",
+      "question": "How would you feel about a church regularly offering rosary?",
+      "explanation": "A prayer practice reflecting on the life of Christ with Marian prayers.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Catechism: Mary, §971",
+          "url": "https://www.vatican.va/content/catechism/en/part_one/section_two/chapter_three/article_9/paragraph_6_mary_-_mother_of_christ%2C_mother_of_the_church.html"
+        }
+      ]
+    },
+    {
+      "id": "adoration",
+      "title": "Eucharistic adoration",
+      "question": "How would you feel about a church regularly offering eucharistic adoration?",
+      "explanation": "Prayer before the consecrated Eucharist outside the main service.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        }
+      ]
+    },
+    {
+      "id": "icons",
+      "title": "Veneration of icons",
+      "question": "How would you feel about a church regularly offering veneration of icons?",
+      "explanation": "Showing honor through sacred images, distinguished from worship of God.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        }
+      ]
+    },
+    {
+      "id": "daily-prayer",
+      "title": "Daily communal prayer",
+      "question": "How would you feel about a church regularly offering daily communal prayer?",
+      "explanation": "Regular shared prayer, including a daily office or other prayer gatherings.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "The Episcopal Church: What We Believe",
+          "url": "https://www.episcopalchurch.org/who-we-are/what-we-believe/"
+        },
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        }
+      ]
+    },
+    {
+      "id": "bible-study",
+      "title": "Group Bible study",
+      "question": "How would you feel about a church regularly offering group bible study?",
+      "explanation": "Reading and discussing Scripture together.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        }
+      ]
+    },
+    {
+      "id": "fasting",
+      "title": "Shared fasting practices",
+      "question": "How would you feel about a church regularly offering shared fasting practices?",
+      "explanation": "A community rhythm of fasting, with pastoral accommodations.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        },
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        }
+      ]
+    },
+    {
+      "id": "prayer-groups",
+      "title": "Prayer groups",
+      "question": "How would you feel about a church regularly offering prayer groups?",
+      "explanation": "Small gatherings for shared prayer and mutual support.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        }
+      ]
+    },
+    {
+      "id": "service",
+      "title": "Works of mercy",
+      "question": "How would you feel about a church regularly offering works of mercy?",
+      "explanation": "Organized opportunities to serve neighbors and people in need.",
+      "category": "devotion",
+      "options": [
+        {
+          "id": "seek",
+          "label": "I would seek this out",
+          "group": "seek"
+        },
+        {
+          "id": "comfortable",
+          "label": "I am comfortable with it",
+          "group": "comfortable"
+        },
+        {
+          "id": "avoid",
+          "label": "I would prefer a church without this organized practice",
+          "group": "avoid"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        }
+      ]
+    }
+  ],
+  "traditions": [
+    {
+      "id": "catholic",
+      "name": "Catholic",
+      "summary": "Explore sacramental life, apostolic tradition and communion with the pope. Local devotions and schedules need parish confirmation.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "magisterium",
+        "baptism-recipients": "infants",
+        "baptism-meaning": "grace",
+        "baptism-mode": "several",
+        "communion": "transubstantiation",
+        "governance": "pope",
+        "saints": "yes",
+        "confession": "sacrament",
+        "salvation": "participation"
+      },
+      "sources": [
+        {
+          "title": "Catechism of the Catholic Church",
+          "url": "https://www.vatican.va/archive/ENG0015/_INDEX.HTM"
+        },
+        {
+          "title": "Catechism: Mary, §971",
+          "url": "https://www.vatican.va/content/catechism/en/part_one/section_two/chapter_three/article_9/paragraph_6_mary_-_mother_of_christ%2C_mother_of_the_church.html"
+        }
+      ]
+    },
+    {
+      "id": "eastern-orthodox",
+      "name": "Eastern Orthodox — OCA reference",
+      "summary": "An introduction through Orthodox Church in America teaching. Other Orthodox jurisdictions and local practices should be explored directly.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "tradition",
+        "baptism-recipients": "infants",
+        "baptism-meaning": "grace",
+        "communion": "presence",
+        "governance": "bishops",
+        "saints": "yes",
+        "confession": "sacrament",
+        "salvation": "participation"
+      },
+      "sources": [
+        {
+          "title": "The Orthodox Faith — Orthodox Church in America",
+          "url": "https://www.oca.org/orthodoxy/the-orthodox-faith"
+        }
+      ]
+    },
+    {
+      "id": "southern-baptist",
+      "name": "Southern Baptist",
+      "summary": "A reference based on the Baptist Faith and Message. Congregations are autonomous; confirm local statements and practices.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "scripture",
+        "baptism-recipients": "believers",
+        "baptism-meaning": "sign",
+        "baptism-mode": "immersion",
+        "communion": "memorial",
+        "governance": "congregation",
+        "sabbath": "other"
+      },
+      "sources": [
+        {
+          "title": "Baptist Faith and Message 2000",
+          "url": "https://bfm.sbc.net/bfm2000/"
+        }
+      ]
+    },
+    {
+      "id": "lcms",
+      "name": "Lutheran — Missouri Synod",
+      "summary": "A reference for the LCMS specifically, not a profile of all Lutheran churches.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "scripture",
+        "baptism-recipients": "infants",
+        "baptism-meaning": "grace",
+        "baptism-mode": "several",
+        "communion": "union",
+        "salvation": "faith",
+        "confession": "sacrament"
+      },
+      "sources": [
+        {
+          "title": "LCMS doctrinal statement",
+          "url": "https://www.lcms.org/about/beliefs/doctrine/brief-statement-of-lcms-doctrinal-position"
+        }
+      ]
+    },
+    {
+      "id": "united-methodist",
+      "name": "United Methodist",
+      "summary": "Explore grace, baptism and a connected community. Local congregations should confirm practices and participation guidance.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "baptism-recipients": "infants",
+        "baptism-meaning": "grace",
+        "baptism-mode": "several",
+        "governance": "connection"
+      },
+      "sources": [
+        {
+          "title": "United Methodist beliefs",
+          "url": "https://www.umc.org/content/what-we-believe-what-it-means-to-be-united-methodist"
+        },
+        {
+          "title": "Wesleyan means of grace",
+          "url": "https://www.umc.org/content/the-wesleyan-means-of-grace"
+        }
+      ]
+    },
+    {
+      "id": "pcusa",
+      "name": "Presbyterian Church (USA)",
+      "summary": "A limited reference to Presbyterian sacramental teaching; other Presbyterian bodies may differ.",
+      "answers": {
+        "baptism-recipients": "infants",
+        "baptism-meaning": "covenant",
+        "communion": "spiritual"
+      },
+      "sources": [
+        {
+          "title": "Presbyterian Church (USA): Sacraments",
+          "url": "https://pcusa.org/about-pcusa/agencies-entities/life-witness/ministry-areas/theology-worship/worship/sacraments"
+        }
+      ]
+    },
+    {
+      "id": "episcopal",
+      "name": "The Episcopal Church",
+      "summary": "Explore a tradition shaped by Scripture and the Book of Common Prayer. Congregational expression varies.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "baptism-recipients": "infants",
+        "baptism-mode": "several",
+        "governance": "bishops",
+        "worship": "liturgy"
+      },
+      "sources": [
+        {
+          "title": "The Episcopal Church: What We Believe",
+          "url": "https://www.episcopalchurch.org/who-we-are/what-we-believe/"
+        }
+      ]
+    },
+    {
+      "id": "assemblies-of-god",
+      "name": "Assemblies of God (USA)",
+      "summary": "A Pentecostal reference based on the denomination’s Fundamental Truths; it does not stand for all Pentecostal churches.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "scripture",
+        "baptism-recipients": "believers",
+        "baptism-mode": "immersion",
+        "baptism-meaning": "sign",
+        "communion": "memorial",
+        "gifts": "continue",
+        "tongues": "yes"
+      },
+      "sources": [
+        {
+          "title": "Assemblies of God: Fundamental Truths",
+          "url": "https://ag.org/beliefs/statement-of-fundamental-truths"
+        }
+      ]
+    },
+    {
+      "id": "seventh-day-adventist",
+      "name": "Seventh-day Adventist",
+      "summary": "Explore the denomination’s official fundamental beliefs, including seventh-day Sabbath observance.",
+      "answers": {
+        "godhead": "trinity",
+        "scripture": "bible",
+        "authority": "scripture",
+        "baptism-recipients": "believers",
+        "baptism-mode": "immersion",
+        "sabbath": "seventh"
+      },
+      "sources": [
+        {
+          "title": "Seventh-day Adventist beliefs",
+          "url": "https://adventist.org/beliefs"
+        }
+      ]
+    },
+    {
+      "id": "latter-day-saint",
+      "name": "Church of Jesus Christ of Latter-day Saints",
+      "summary": "Included consistently with the directory. Its account of the Godhead and continuing revelation differs from Nicene Trinitarian traditions.",
+      "answers": {
+        "godhead": "distinct",
+        "scripture": "additional",
+        "authority": "revelation",
+        "baptism-recipients": "believers",
+        "baptism-mode": "immersion"
+      },
+      "sources": [
+        {
+          "title": "Latter-day Saint Articles of Faith",
+          "url": "https://www.churchofjesuschrist.org/study/scriptures/pgp/a-of-f/1?lang=eng"
+        }
+      ]
+    }
+  ]
+}

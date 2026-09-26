@@ -31,7 +31,7 @@ class MemberFlowTest extends AbstractIntegrationTest {
     private String register(String email) throws Exception {
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
-                .content(objectMapper.writeValueAsString(new RegisterRequest(email, "password123"))))
+                .content(objectMapper.writeValueAsString(new RegisterRequest(email, "password123", "Test User"))))
             .andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(body).get("token").asText();
@@ -72,8 +72,8 @@ class MemberFlowTest extends AbstractIntegrationTest {
                 .header("Authorization", "Bearer " + alice))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.churchId").value(churchId))
-            // the local part of the email, never the full address
-            .andExpect(jsonPath("$.displayName").value(email.substring(0, email.indexOf('@'))));
+            // the display name chosen at registration, never the email
+            .andExpect(jsonPath("$.displayName").value("Test User"));
 
         mockMvc.perform(get("/api/churches/" + churchId + "/members")
                 .header("Authorization", "Bearer " + alice))

@@ -51,7 +51,7 @@ class ChurchControllerSecurityTest extends AbstractIntegrationTest {
 
     @Test
     void createChurchWithValidToken_isAuthorized() throws Exception {
-        RegisterRequest register = new RegisterRequest("churchcreator@example.com", "password123");
+        RegisterRequest register = new RegisterRequest("churchcreator@example.com", "password123", "Test User");
 
         String registerBody = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")

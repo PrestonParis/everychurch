@@ -1,0 +1,48 @@
+<div class="min-h-screen bg-parchment">
+  <div class="bg-surface border-b border-hairline">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+      <h1 class="text-3xl font-serif font-semibold text-ink mb-1">Messages</h1>
+      <p class="text-ink-muted text-sm">Your direct conversations.</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    @if (loading()) {
+      <div class="flex justify-center py-24">
+        <div class="w-8 h-8 rounded-full border-4 border-oxblood border-t-transparent animate-spin"></div>
+      </div>
+    } @else if (error()) {
+      <p class="text-sm text-ink-muted text-center py-24">Could not load your conversations.</p>
+    } @else if (conversations().length === 0) {
+      <div class="text-center py-24">
+        <p class="text-ink-muted text-lg mb-2">No conversations yet.</p>
+        <p class="text-sm text-ink-muted">Message someone from a church's member list to start one.</p>
+      </div>
+    } @else {
+      <div class="space-y-2">
+        @for (c of conversations(); track c.otherUserId) {
+          <a [routerLink]="['/messages', c.otherUserId]"
+             class="flex items-center gap-3 bg-surface rounded-2xl ring-1 ring-hairline hover:ring-gold/60 hover:shadow-md transition-all duration-150 p-4">
+            <span class="w-10 h-10 rounded-full bg-gold/10 text-oxblood font-bold text-sm flex items-center justify-center uppercase flex-shrink-0">
+              {{ c.otherUserDisplayName[0] }}
+            </span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline justify-between gap-2">
+                <span class="font-semibold text-ink truncate">{{ c.otherUserDisplayName }}</span>
+                <span class="text-xs text-ink-muted flex-shrink-0">{{ formatTime(c.lastMessageSentAt) }}</span>
+              </div>
+              <p class="text-sm text-ink-muted truncate">
+                @if (c.lastMessageFromMe) { <span class="text-ink-muted/70">You: </span> }{{ c.lastMessageBody }}
+              </p>
+            </div>
+            @if (c.unreadCount > 0) {
+              <span class="flex-shrink-0 min-w-5 h-5 px-1.5 rounded-full bg-oxblood text-white text-xs font-bold flex items-center justify-center">
+                {{ c.unreadCount }}
+              </span>
+            }
+          </a>
+        }
+      </div>
+    }
+  </div>
+</div>

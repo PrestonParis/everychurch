@@ -149,16 +149,23 @@ public class ChurchSubmissionService {
     }
 
     private ChurchSubmissionDto toDto(ChurchSubmission submission) {
+        ChurchDto proposed = readPayload(submission.getPayload());
+        Long targetChurchId = submission.getTargetChurch() != null ? submission.getTargetChurch().getId() : null;
+        boolean stillDecidable = submission.getStatus() == ChurchSubmissionStatus.PENDING;
+
         return new ChurchSubmissionDto(
             submission.getId(),
-            submission.getTargetChurch() != null ? submission.getTargetChurch().getId() : null,
+            targetChurchId,
             submission.getTargetChurch() != null ? submission.getTargetChurch().getName() : null,
-            readPayload(submission.getPayload()),
+            proposed,
             submission.getSubmittedBy(),
             submission.getStatus(),
             submission.getReviewedBy() != null ? submission.getReviewedBy().getEmail() : null,
             submission.getCreatedAt(),
-            submission.getReviewedAt()
+            submission.getReviewedAt(),
+            stillDecidable
+                ? churchService.findPossibleDuplicates(proposed.name(), proposed.city(), proposed.zipCode(), targetChurchId)
+                : List.of()
         );
     }
 }

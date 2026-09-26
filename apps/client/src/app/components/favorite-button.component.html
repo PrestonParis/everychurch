@@ -1,0 +1,16 @@
+<button
+  type="button"
+  (click)="toggle($event)"
+  [disabled]="loading"
+  [attr.aria-label]="favorited ? 'Remove from favorites' : 'Add to favorites'"
+  [attr.aria-pressed]="favorited"
+  class="inline-flex items-center justify-center rounded-full transition-colors disabled:opacity-60"
+  [class]="withBacking()
+    ? 'w-8 h-8 bg-white/90 shadow-sm hover:bg-white ' + (favorited ? 'text-red-500' : 'text-slate-400 hover:text-red-500')
+    : 'w-9 h-9 hover:bg-slate-100 ' + (favorited ? 'text-red-500' : 'text-slate-400 hover:text-red-500')"
+>
+  <svg class="w-5 h-5" viewBox="0 0 24 24" [attr.fill]="favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round"
+      d="M12 20.727l-1.318-1.2C5.4 14.895 2 11.803 2 8.02 2 4.927 4.42 2.5 7.5 2.5c1.74 0 3.41.81 4.5 2.09A5.99 5.99 0 0116.5 2.5C19.58 2.5 22 4.927 22 8.02c0 3.782-3.4 6.875-8.682 11.508L12 20.727z" />
+  </svg>
+</button>

@@ -51,6 +51,7 @@ describe('AuthComponent (zoneless rendering)', () => {
     const { http, fixture, el, type } = setup('register');
     type('input[type=email]', 'new@example.com');
     type('input[type=password]', 'password123');
+    type('input[formcontrolname=displayName]', 'New Person');
     await fixture.whenStable();
 
     (el.querySelector('form') as HTMLFormElement).dispatchEvent(new Event('submit'));

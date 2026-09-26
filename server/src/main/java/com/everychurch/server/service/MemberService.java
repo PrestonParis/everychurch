@@ -80,6 +80,8 @@ public class MemberService {
     }
 
     private MemberDto toDto(Member member) {
-        return new MemberDto(member.getId(), member.getChurch().getId(), member.getUser().getDisplayName(), member.getJoinedAt());
+        return new MemberDto(
+            member.getId(), member.getChurch().getId(), member.getUser().getId(),
+            member.getUser().getDisplayName(), member.getJoinedAt());
     }
 }

@@ -35,7 +35,7 @@ class UploadUrlPermissionsTest extends AbstractIntegrationTest {
     private static final AtomicInteger counter = new AtomicInteger();
 
     private String register(String email) throws Exception {
-        RegisterRequest request = new RegisterRequest(email, "password123");
+        RegisterRequest request = new RegisterRequest(email, "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))

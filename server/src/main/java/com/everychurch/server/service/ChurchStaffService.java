@@ -48,6 +48,14 @@ public class ChurchStaffService {
         return churchStaffRepository.findByChurchId(churchId).stream().map(this::toDto).toList();
     }
 
+    /** Self-service, no permission check needed — a user can always see their own
+     *  memberships. Powers client-side checks like "does this person have anything to
+     *  manage events for" (EventListComponent/EventDetailComponent) without offering a
+     *  New Event/Edit/Delete button that a plain Member could never actually use. */
+    public List<ChurchStaffDto> listMyStaffChurches(User requester) {
+        return churchStaffRepository.findByUserId(requester.getId()).stream().map(this::toDto).toList();
+    }
+
     public ChurchStaffDto addStaff(Long churchId, User requester, String email, Set<ChurchPermission> permissions) {
         requireCanManage(churchId, requester);
 

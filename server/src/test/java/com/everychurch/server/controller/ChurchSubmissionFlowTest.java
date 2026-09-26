@@ -38,7 +38,7 @@ class ChurchSubmissionFlowTest extends AbstractIntegrationTest {
     private static final AtomicInteger counter = new AtomicInteger();
 
     private String register(String email) throws Exception {
-        RegisterRequest request = new RegisterRequest(email, "password123");
+        RegisterRequest request = new RegisterRequest(email, "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))
@@ -70,7 +70,7 @@ class ChurchSubmissionFlowTest extends AbstractIntegrationTest {
         String code = objectMapper.readTree(inviteBody).get("code").asText();
 
         String email = "volunteer" + counter.incrementAndGet() + "@example.com";
-        VolunteerRegisterRequest volunteerRegister = new VolunteerRegisterRequest(code, email, "password123");
+        VolunteerRegisterRequest volunteerRegister = new VolunteerRegisterRequest(code, email, "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register/volunteer")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(volunteerRegister)))

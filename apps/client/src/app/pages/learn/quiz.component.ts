@@ -1,0 +1,90 @@
+import { DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  Component,
+  ElementRef,
+  OnInit,
+  ViewChild,
+  inject,
+  signal,
+} from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
+import { FaithAnswer, FaithCatalog } from '../../models/faith.model';
+import { FaithService, faithError } from '../../services/faith.service';
+
+@Component({
+  selector: 'app-faith-quiz',
+  standalone: true,
+  imports: [FormsModule, RouterModule],
+  templateUrl: './quiz.component.html',
+  styleUrl: './faith.scss',
+})
+export class QuizComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
+  service = inject(FaithService);
+  private router = inject(Router);
+  @ViewChild('questionHeading') heading?: ElementRef<HTMLElement>;
+  catalog = signal<FaithCatalog | null>(null);
+  index = signal(0);
+  answers: Record<string, FaithAnswer> = {};
+  error = signal('');
+  busy = signal(false);
+  ngOnInit() {
+    const previous = this.service.request();
+    this.service
+      .catalog(previous?.catalogVersion)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (c) => {
+          this.catalog.set(c);
+          this.answers = structuredClone(previous?.answers ?? {});
+        },
+        error: (e) => this.error.set(faithError(e)),
+      });
+  }
+  get question() {
+    return this.catalog()?.dimensions[this.index()];
+  }
+  answer(id: string): FaithAnswer {
+    return this.answers[id] ?? { option: 'unknown', importance: 1 };
+  }
+  choose(id: string, option: string) {
+    this.answers[id] = { ...this.answer(id), option };
+    this.remember();
+  }
+  importance(id: string, importance: number) {
+    this.answers[id] = { ...this.answer(id), importance: Number(importance) };
+    this.remember();
+  }
+  remember() {
+    this.service.request.set({
+      ...this.service.request(),
+      catalogVersion: this.catalog()!.version,
+      answers: structuredClone(this.answers),
+    });
+  }
+  move(delta: number) {
+    this.remember();
+    this.index.update((i) => i + delta);
+    setTimeout(() => this.heading?.nativeElement.focus());
+  }
+  finish() {
+    this.remember();
+    this.busy.set(true);
+    this.error.set('');
+    this.service
+      .evaluate(this.service.request()!)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.service.result.set(result);
+          this.router.navigate(['/learn/denomination-quiz/results']);
+        },
+        error: (e) => {
+          this.error.set(faithError(e));
+          this.busy.set(false);
+        },
+      });
+  }
+}

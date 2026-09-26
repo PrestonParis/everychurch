@@ -5,6 +5,7 @@ import com.everychurch.server.dto.ParseUrlRequest;
 import com.everychurch.server.model.User;
 import com.everychurch.server.repository.UserRepository;
 import com.everychurch.server.service.ChurchService;
+import com.everychurch.server.service.ChurchViewService;
 import com.everychurch.server.service.UrlParserService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,11 +24,18 @@ public class ChurchController {
 
     private final ChurchService churchService;
     private final UrlParserService urlParserService;
+    private final ChurchViewService churchViewService;
     private final UserRepository userRepository;
 
-    public ChurchController(ChurchService churchService, UrlParserService urlParserService, UserRepository userRepository) {
+    public ChurchController(
+        ChurchService churchService,
+        UrlParserService urlParserService,
+        ChurchViewService churchViewService,
+        UserRepository userRepository
+    ) {
         this.churchService = churchService;
         this.urlParserService = urlParserService;
+        this.churchViewService = churchViewService;
         this.userRepository = userRepository;
     }
 
@@ -40,14 +48,44 @@ public class ChurchController {
         @RequestParam(defaultValue = "") String denomination,
         @RequestParam(defaultValue = "") String state,
         @RequestParam(defaultValue = "") String city,
+        // seed: client-generated per-browser-session value used to give a stable
+        // pseudo-random default order (see ChurchRepository.search) instead of always
+        // alphabetical. lat/lng: passed once the client already knows the user's
+        // location (silently, via a prior geolocation grant — see church-list.component.ts),
+        // to sort nearest-first instead. Both only affect ordering when query is blank.
+        @RequestParam(defaultValue = "") String seed,
+        @RequestParam(required = false) Double lat,
+        @RequestParam(required = false) Double lng,
         @PageableDefault(size = 20, sort = "name") Pageable pageable
     ) {
-        return churchService.search(query, denomination, state, city, pageable);
+        return churchService.search(query, denomination, state, city, seed, lat, lng, pageable);
+    }
+
+    // Typeahead suggestions for the city/state filter inputs — see ChurchRepository
+    // .suggestCities/suggestStates. Public/no-auth like the other GETs here.
+    @GetMapping("/cities")
+    public List<String> cities(@RequestParam(defaultValue = "") String prefix, @RequestParam(defaultValue = "") String state) {
+        return churchService.suggestCities(prefix, state);
+    }
+
+    @GetMapping("/states")
+    public List<String> states(@RequestParam(defaultValue = "") String prefix) {
+        return churchService.suggestStates(prefix);
     }
 
     @GetMapping("/{id}")
     public ChurchDto get(@PathVariable Long id) {
         return churchService.findById(id);
+    }
+
+    // Fire-and-forget from ChurchProfileComponent on every profile load, only when the
+    // viewer is logged in (no User row to attach an anonymous view to, and no
+    // Favorites page for them to see "recently viewed" on anyway). Not covered by the
+    // public GET rule below — POST already requires authentication by default.
+    @PostMapping("/{id}/view")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void recordView(@PathVariable Long id, Authentication authentication) {
+        churchViewService.recordView(id, currentUser(authentication));
     }
 
     @PostMapping
@@ -76,6 +114,19 @@ public class ChurchController {
     @PostMapping("/parse-url")
     public ChurchDto parseUrl(@RequestBody ParseUrlRequest request) {
         return urlParserService.parse(request.url());
+    }
+
+    // Non-blocking hint, not validation — see ChurchService.findPossibleDuplicates. Left
+    // public/no-auth like the other GETs here; it returns nothing more than search()
+    // already would (public church names/cities), just filtered by similarity.
+    @GetMapping("/duplicate-check")
+    public List<ChurchDto> duplicateCheck(
+        @RequestParam String name,
+        @RequestParam(defaultValue = "") String city,
+        @RequestParam(defaultValue = "") String zipCode,
+        @RequestParam(required = false) Long excludeId
+    ) {
+        return churchService.findPossibleDuplicates(name, city, zipCode, excludeId);
     }
 
     @GetMapping("/nearest")

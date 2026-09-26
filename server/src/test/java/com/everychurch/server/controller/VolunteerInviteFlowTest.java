@@ -44,7 +44,7 @@ class VolunteerInviteFlowTest extends AbstractIntegrationTest {
 
     @Test
     void nonAdminCannotGenerateInvites() throws Exception {
-        RegisterRequest register = new RegisterRequest("regularmember@example.com", "password123");
+        RegisterRequest register = new RegisterRequest("regularmember@example.com", "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(register)))
@@ -81,7 +81,7 @@ class VolunteerInviteFlowTest extends AbstractIntegrationTest {
 
         String code = objectMapper.readTree(createBody).get("code").asText();
 
-        VolunteerRegisterRequest volunteerRegister = new VolunteerRegisterRequest(code, "recruit@example.com", "password123");
+        VolunteerRegisterRequest volunteerRegister = new VolunteerRegisterRequest(code, "recruit@example.com", "password123", "Test User");
 
         mockMvc.perform(post("/api/auth/register/volunteer")
                 .contentType("application/json")
@@ -90,7 +90,7 @@ class VolunteerInviteFlowTest extends AbstractIntegrationTest {
             .andExpect(jsonPath("$.role").value("VOLUNTEER"));
 
         // same code, different recruit — must be rejected
-        VolunteerRegisterRequest reuse = new VolunteerRegisterRequest(code, "someoneelse@example.com", "password123");
+        VolunteerRegisterRequest reuse = new VolunteerRegisterRequest(code, "someoneelse@example.com", "password123", "Test User");
 
         mockMvc.perform(post("/api/auth/register/volunteer")
                 .contentType("application/json")
@@ -100,7 +100,7 @@ class VolunteerInviteFlowTest extends AbstractIntegrationTest {
 
     @Test
     void unknownCodeIsRejected() throws Exception {
-        VolunteerRegisterRequest request = new VolunteerRegisterRequest("NOT-A-REAL-CODE", "nobody@example.com", "password123");
+        VolunteerRegisterRequest request = new VolunteerRegisterRequest("NOT-A-REAL-CODE", "nobody@example.com", "password123", "Test User");
 
         mockMvc.perform(post("/api/auth/register/volunteer")
                 .contentType("application/json")
@@ -128,7 +128,7 @@ class VolunteerInviteFlowTest extends AbstractIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("REVOKED"));
 
-        VolunteerRegisterRequest request = new VolunteerRegisterRequest(code, "toolate@example.com", "password123");
+        VolunteerRegisterRequest request = new VolunteerRegisterRequest(code, "toolate@example.com", "password123", "Test User");
 
         mockMvc.perform(post("/api/auth/register/volunteer")
                 .contentType("application/json")

@@ -13,11 +13,21 @@ import { ChurchCommunityComponent } from './church-community.component';
 import { ChurchClaimComponent } from './church-claim.component';
 import { MemberService } from '../../services/member.service';
 import { MembershipStatus } from '../../models/member.model';
+import { FavoriteButtonComponent } from '../../components/favorite-button.component';
+import { FollowButtonComponent } from '../../components/follow-button.component';
+import { ChurchPostsComponent } from './church-posts.component';
+import { ChurchStaffService } from '../../services/church-staff.service';
+import { ChurchPermission } from '../../models/church-staff.model';
+import { ChurchMapComponent } from '../../components/church-map.component';
 
 @Component({
   selector: 'app-church-profile',
   standalone: true,
-  imports: [RouterModule, ChurchCommunityComponent, ChurchClaimComponent],
+  imports: [
+    RouterModule, ChurchCommunityComponent, ChurchClaimComponent,
+    FavoriteButtonComponent, FollowButtonComponent, ChurchPostsComponent,
+    ChurchMapComponent,
+  ],
   templateUrl: './church-profile.component.html',
 })
 export class ChurchProfileComponent implements OnInit {
@@ -27,6 +37,7 @@ export class ChurchProfileComponent implements OnInit {
   private sermonService = inject(SermonService);
   private eventService = inject(EventService);
   private memberService = inject(MemberService);
+  private churchStaffService = inject(ChurchStaffService);
   authService = inject(AuthService);
 
   // Backed by signals, exposed as plain-looking properties so the template reads them
@@ -37,6 +48,10 @@ export class ChurchProfileComponent implements OnInit {
   private readonly _loading = signal(true);
   private readonly _error = signal(false);
   private readonly _status = signal<MembershipStatus | null>(null);
+  // This user's permission set specifically for THIS church (empty until it's
+  // fetched, or for an unclaimed church where there's no ChurchStaff row to have
+  // one — canManage's unclaimed-church branch below covers that case instead).
+  private readonly _myPermissions = signal<Set<ChurchPermission>>(new Set());
   get church(): Church | null { return this._church(); }
   get loading(): boolean { return this._loading(); }
   get error(): boolean { return this._error(); }
@@ -62,10 +77,28 @@ export class ChurchProfileComponent implements OnInit {
       },
     });
 
+    // Fire-and-forget — feeds "recently viewed" on the Favorites page. Only logged-in
+    // viewers have a Favorites page to see it on, so there's nothing to record otherwise.
+    if (this.authService.isAuthenticated()) {
+      this.churchService.recordView(id).subscribe({ error: () => {} });
+    }
+
     if (this.authService.isAuthenticated()) {
       this.memberService.status(id).subscribe({
         next: (status) => this._status.set(status),
         error: () => this._status.set(null),
+      });
+
+      // Powers the per-control checks below (canEditProfile/canManageSermons/etc) —
+      // a plain "is staff" boolean used to gate Edit/Photos/Sermons/+Event as one
+      // group, so someone appointed for events-only was still offered Edit/Photos/
+      // Sermons buttons the server would reject.
+      this.churchStaffService.myStaffChurches().subscribe({
+        next: (summaries) => {
+          const mine = summaries.find((s) => s.churchId === id);
+          this._myPermissions.set(new Set(mine?.permissions ?? []));
+        },
+        error: () => this._myPermissions.set(new Set()),
       });
     }
 
@@ -93,16 +126,41 @@ export class ChurchProfileComponent implements OnInit {
   }
 
   /**
-   * Whether to show the Edit/Photos/Sermons/Event controls. Mirrors the server's rule so
-   * nobody is offered a button that ends in a refusal: an unclaimed listing has no owner yet
-   * so any logged-in user may edit it; once claimed, only its staff (or a Platform Admin).
-   * For a claimed church we hide the controls until we know the answer rather than flash them.
+   * Whether this person can manage ANYTHING about this church — used to decide
+   * whether the management area (the Edit/Photos/Sermons/+Event row, the post
+   * composer) is worth showing at all. Individual controls within it are gated more
+   * specifically below (canEditProfile/canManageSermons/canManageEvents/
+   * canManagePosts) — found in review that a staff member appointed for one thing
+   * (say, events) was shown every control regardless, because this alone used to
+   * gate all of them as one group; the server always enforced the real permission
+   * correctly, this was purely an over-offered client-side button.
    */
   get canManage(): boolean {
+    return this.canEditProfile || this.canManageSermons || this.canManageEvents
+      || this.canManagePosts || this.canManageStaff;
+  }
+
+  get canEditProfile(): boolean { return this.hasPermission('EDIT_PROFILE'); }
+  get canManageSermons(): boolean { return this.hasPermission('MANAGE_SERMONS'); }
+  get canManageEvents(): boolean { return this.hasPermission('MANAGE_EVENTS'); }
+  get canManagePosts(): boolean { return this.hasPermission('MANAGE_POSTS'); }
+  get canManageStaff(): boolean { return this.hasPermission('MANAGE_STAFF'); }
+
+  /**
+   * Mirrors the server's rule (ChurchService/EventService/PostService's
+   * requireCanManage-style checks) exactly: once claimed, needs this specific
+   * permission (or Platform Admin); an unclaimed listing has no owner yet, so — per
+   * project-owner feedback (docs/PROMPTS.md) — only a Platform Admin may touch it at
+   * all, regardless of which permission is being asked about (there's no ChurchStaff
+   * row to have one). Everyone else still has a path in: the ChurchSubmission review
+   * queue for volunteers.
+   */
+  private hasPermission(permission: ChurchPermission): boolean {
     const church = this.church;
     if (!church || !this.authService.isAuthenticated()) return false;
-    if (!church.claimed) return true;
-    return this.authService.currentUser()?.role === 'PLATFORM_ADMIN' || this._status()?.staff === true;
+    if (this.authService.currentUser()?.role === 'PLATFORM_ADMIN') return true;
+    if (!church.claimed) return false;
+    return this._myPermissions().has(permission);
   }
 
   isVideo(url: string): boolean {

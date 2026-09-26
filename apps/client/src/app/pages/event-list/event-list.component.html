@@ -6,7 +6,7 @@
         <h1 class="text-2xl font-bold text-slate-900">Events</h1>
         <p class="text-sm text-slate-500 mt-1">Upcoming events across all churches.</p>
       </div>
-@if (authService.isAuthenticated()) {
+@if (canCreateEvents()) {
       <a routerLink="/events/new"
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -19,6 +19,37 @@
   </div>
 
   <div class="max-w-4xl mx-auto px-6 py-8">
+    @if (invitations().length > 0) {
+      <div class="mb-6 bg-amber-50 ring-1 ring-amber-200 rounded-2xl p-5">
+        <h2 class="text-xs font-semibold uppercase tracking-widest text-amber-700 mb-3">
+          Co-host {{ invitations().length === 1 ? 'invitation' : 'invitations' }}
+        </h2>
+        <div class="space-y-2">
+          @for (invitation of invitations(); track invitation.eventId + '-' + invitation.churchId) {
+            <div class="flex items-center justify-between gap-3 flex-wrap bg-white rounded-xl px-4 py-3">
+              <p class="text-sm text-slate-700 min-w-0">
+                <span class="font-semibold">{{ invitation.churchName }}</span>
+                is invited to co-host
+                <a [routerLink]="['/events', invitation.eventId]" class="font-semibold text-indigo-600 hover:underline">{{ invitation.eventTitle }}</a>
+              </p>
+              <div class="flex items-center gap-2 flex-shrink-0">
+                <button type="button" (click)="respondToInvitation(invitation, true)"
+                        [disabled]="respondingKey() === invitation.eventId + '-' + invitation.churchId"
+                        class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold transition-colors disabled:opacity-50">
+                  Accept
+                </button>
+                <button type="button" (click)="respondToInvitation(invitation, false)"
+                        [disabled]="respondingKey() === invitation.eventId + '-' + invitation.churchId"
+                        class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold transition-colors disabled:opacity-50">
+                  Decline
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
     @if (loading()) {
       <div class="flex justify-center py-24">
         <div class="w-8 h-8 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
@@ -43,8 +74,8 @@
                 {{ formatDate(event.startsAt) }}
               </span>
             </div>
-            @if (event.churchIds.length > 1) {
-              <p class="text-xs text-slate-400 mt-3 uppercase tracking-widest">{{ event.churchIds.length }} co-hosting churches</p>
+            @if (event.churches?.length) {
+              <p class="text-xs text-slate-400 mt-3 uppercase tracking-widest">Hosted by {{ hostSummary(event) }}</p>
             }
           </a>
         }

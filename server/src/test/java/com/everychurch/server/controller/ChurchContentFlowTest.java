@@ -28,7 +28,7 @@ class ChurchContentFlowTest extends AbstractIntegrationTest {
     @Autowired ObjectMapper objectMapper;
 
     private String register(String email, String password) throws Exception {
-        RegisterRequest request = new RegisterRequest(email, password);
+        RegisterRequest request = new RegisterRequest(email, password, "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))

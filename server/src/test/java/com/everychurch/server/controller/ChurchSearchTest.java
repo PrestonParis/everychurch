@@ -37,7 +37,7 @@ class ChurchSearchTest extends AbstractIntegrationTest {
 
     private String authToken() throws Exception {
         RegisterRequest request = new RegisterRequest(
-            "search-fixture-" + userCounter.incrementAndGet() + "@example.com", "password123");
+            "search-fixture-" + userCounter.incrementAndGet() + "@example.com", "password123", "Test User");
         String body = mockMvc.perform(post("/api/auth/register")
                 .contentType("application/json")
                 .content(objectMapper.writeValueAsString(request)))
@@ -101,6 +101,45 @@ class ChurchSearchTest extends AbstractIntegrationTest {
         JsonNode content = objectMapper.readTree(body).get("content");
         assertEquals(1, content.size());
         assertEquals("Combined Filter Grace Church", content.get(0).get("name").asText());
+    }
+
+    @Test
+    void cityStateAndDenominationFiltersAreCaseInsensitive() throws Exception {
+        // Real bulk-imported data is stored upper-cased ("CHICAGO", "IL") — a filter
+        // that only matched on exact case returned nothing for naturally-cased input
+        // (see V8__normalize_denominations_and_case_insensitive_filters.sql).
+        createChurch("Case Insensitive Fixture Church", "Presbyterian", "CZ", "Caseville");
+
+        mockMvc.perform(get("/api/churches")
+                .param("city", "caseville")
+                .param("state", "cz")
+                .param("denomination", "presbyterian"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.name == 'Case Insensitive Fixture Church')]").exists());
+    }
+
+    @Test
+    void denominationFilterMatchesRawAbbreviatedData() throws Exception {
+        // Bulk-imported/scraped data isn't guaranteed to already be normalized to the
+        // curated DENOMINATIONS labels (see ChurchRepository.search's keyword-matching
+        // comment) — an exact match on "Baptist" must still find a church stored as "SBC".
+        createChurch("Abbreviation Fixture Church", "SBC", "AZ", "Abbrevton");
+
+        mockMvc.perform(get("/api/churches")
+                .param("denomination", "Baptist")
+                .param("state", "AZ")
+                .param("city", "Abbrevton"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content[?(@.name == 'Abbreviation Fixture Church')]").exists());
+    }
+
+    @Test
+    void citySuggestionsMatchPrefixCaseInsensitively() throws Exception {
+        createChurch("Suggestion Fixture Church", "Methodist", "SU", "Suggestville");
+
+        mockMvc.perform(get("/api/churches/cities").param("prefix", "SUGG"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[?(@ == 'Suggestville')]").exists());
     }
 
     @Test

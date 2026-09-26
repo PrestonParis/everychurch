@@ -39,6 +39,11 @@ public class Church {
     private Double latitude;
     private Double longitude;
 
+    // Denormalized, recomputed by ChurchService.applyDto whenever serviceTimes are saved.
+    // Exists purely so the paginated list can show something useful without loading the
+    // LAZY serviceTimes collection per row — see the comment on that field below.
+    private String serviceSummary;
+
     // LAZY on purpose: the paginated list/search/nearest endpoints (ChurchService)
     // never touch this association and map straight to an empty list instead — nobody
     // needs a church's full schedule to render a list card. GET /api/churches/{id} is
@@ -103,6 +108,9 @@ public class Church {
 
     public Double getLongitude() { return longitude; }
     public void setLongitude(Double longitude) { this.longitude = longitude; }
+
+    public String getServiceSummary() { return serviceSummary; }
+    public void setServiceSummary(String serviceSummary) { this.serviceSummary = serviceSummary; }
 
     public List<ServiceTime> getServiceTimes() { return serviceTimes; }
     public void setServiceTimes(List<ServiceTime> serviceTimes) { this.serviceTimes = serviceTimes; }
