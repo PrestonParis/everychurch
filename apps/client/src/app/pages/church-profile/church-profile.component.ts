@@ -19,6 +19,8 @@ import { ChurchPostsComponent } from './church-posts.component';
 import { ChurchStaffService } from '../../services/church-staff.service';
 import { ChurchPermission } from '../../models/church-staff.model';
 import { ChurchMapComponent } from '../../components/church-map.component';
+import { TraditionEmblemComponent } from '../../components/tradition-emblem.component';
+import { denomStyle, tintColor, titleCase } from '../../utils/church-display.util';
 
 @Component({
   selector: 'app-church-profile',
@@ -26,7 +28,7 @@ import { ChurchMapComponent } from '../../components/church-map.component';
   imports: [
     RouterModule, ChurchCommunityComponent, ChurchClaimComponent,
     FavoriteButtonComponent, FollowButtonComponent, ChurchPostsComponent,
-    ChurchMapComponent,
+    ChurchMapComponent, TraditionEmblemComponent,
   ],
   templateUrl: './church-profile.component.html',
 })
@@ -208,22 +210,11 @@ export class ChurchProfileComponent implements OnInit {
     return url.length > len ? url.substring(0, len) + '…' : url;
   }
 
-  denominationBadge(denomination?: string): string {
-    const map: Record<string, string> = {
-      'Catholic': 'bg-purple-500/20 border-purple-400/30 text-purple-200',
-      'Baptist': 'bg-blue-500/20 border-blue-400/30 text-blue-200',
-      'Methodist': 'bg-teal-500/20 border-teal-400/30 text-teal-200',
-      'Lutheran': 'bg-orange-500/20 border-orange-400/30 text-orange-200',
-      'Presbyterian': 'bg-green-500/20 border-green-400/30 text-green-200',
-      'Episcopal/Anglican': 'bg-red-500/20 border-red-400/30 text-red-200',
-      'Pentecostal / Assembly of God': 'bg-amber-500/20 border-amber-400/30 text-amber-200',
-      'Non-denominational': 'bg-slate-500/20 border-slate-400/30 text-slate-200',
-      'Evangelical': 'bg-sky-500/20 border-sky-400/30 text-sky-200',
-    };
-    return denomination
-      ? (map[denomination] ?? 'bg-indigo-500/20 border-indigo-400/30 text-indigo-200')
-      : 'bg-white/10 border-white/20 text-white/70';
-  }
+  /** Same curated per-tradition color as the directory cards (see utils/church-display.util) — a
+   *  tradition reads as the same color everywhere, instead of this page inventing its own. */
+  denomStyle = denomStyle;
+  tint = tintColor;
+  titleCase = titleCase;
 
   serviceTypeBadge(type: string): string {
     const map: Record<string, string> = {

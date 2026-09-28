@@ -1,0 +1,369 @@
+@if (loading()) {
+  <div class="flex justify-center items-center min-h-screen bg-parchment">
+    <div class="w-8 h-8 rounded-full border-4 border-oxblood border-t-transparent animate-spin"></div>
+  </div>
+} @else {
+  <div class="min-h-screen bg-parchment">
+    <div class="max-w-[960px] mx-auto px-4 sm:px-6 py-10">
+      <h1 class="text-3xl font-serif font-semibold text-ink mb-1">Settings</h1>
+      <p class="text-ink-muted text-sm mb-8">Manage your EveryChurch account</p>
+
+      <!-- Mobile: a select in place of the sidebar -->
+      <div class="md:hidden mb-5">
+        <select
+          [ngModel]="activeTab()"
+          (ngModelChange)="selectTab($event)"
+          class="w-full px-3 py-2.5 rounded-lg border border-hairline bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-oxblood/30"
+        >
+          <option value="profile">Profile</option>
+          <option value="account">Account</option>
+          <option value="preferences">Preferences</option>
+          <option value="privacy">Privacy</option>
+          <option value="connections">Church connections</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-[180px_minmax(0,1fr)] gap-6">
+        <!-- Sidebar tabs (desktop) -->
+        <nav class="hidden md:block space-y-0.5">
+          @for (tab of tabs; track tab.id) {
+            <button
+              type="button"
+              (click)="selectTab(tab.id)"
+              class="w-full text-left px-3 py-2 rounded-lg text-sm transition-colors"
+              [class]="activeTab() === tab.id ? 'bg-oxblood/10 text-oxblood font-semibold' : 'text-ink-muted hover:text-ink hover:bg-surface'"
+            >
+              {{ tab.label }}
+            </button>
+          }
+        </nav>
+
+        <!-- Content -->
+        <div>
+          @switch (activeTab()) {
+
+            @case ('profile') {
+              <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                <h2 class="text-lg font-serif font-semibold text-ink mb-1">Profile</h2>
+                <p class="text-xs text-ink-muted mb-5">What other EveryChurch members see about you.</p>
+
+                @if (profileComplete === false) {
+                  <p class="text-xs text-ink-muted italic mb-5 pb-5 border-b border-hairline">Complete your profile — add a username, a short bio, or your tradition — so others can find and recognize you.</p>
+                }
+
+                <!-- Photo -->
+                <div class="flex items-center gap-5 mb-6">
+                  <app-user-avatar [avatarUrl]="authService.currentUser()?.avatarUrl" [displayName]="displayNameInput" size="lg" />
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-hairline bg-surface text-xs font-medium text-ink cursor-pointer hover:bg-parchment transition-colors"
+                             [class.opacity-60]="uploading()" [class.pointer-events-none]="uploading()">
+                        @if (uploading()) { Uploading… } @else { Change photo }
+                        <input type="file" accept="image/*" class="hidden" [disabled]="uploading()" (change)="onFileSelected($event)" />
+                      </label>
+                      @if (authService.currentUser()?.avatarUrl) {
+                        <button type="button" (click)="removePhoto()" [disabled]="uploading()" class="text-xs font-medium text-ink-muted hover:text-red-700 transition-colors">Remove</button>
+                      }
+                    </div>
+                    @if (uploadError()) {
+                      <p class="mt-1.5 text-xs text-red-700">{{ uploadError() }}</p>
+                    }
+                  </div>
+                </div>
+
+                <div class="space-y-4">
+                  <div>
+                    <label class="block text-sm font-medium text-ink mb-1.5">Display name</label>
+                    <input [(ngModel)]="displayNameInput" (ngModelChange)="markProfileDirty()"
+                           class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-ink mb-1.5">Username</label>
+                    <div class="relative">
+                      <span class="absolute inset-y-0 left-3 flex items-center text-ink-muted text-sm pointer-events-none">@</span>
+                      <input [(ngModel)]="usernameInput" (ngModelChange)="onUsernameInput()" autocomplete="off"
+                             placeholder="username"
+                             class="w-full pl-7 pr-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                    </div>
+                    @switch (usernameStatus()) {
+                      @case ('checking') { <p class="mt-1 text-xs text-ink-muted">Checking…</p> }
+                      @case ('available') { <p class="mt-1 text-xs text-oxblood">Available</p> }
+                      @case ('taken') { <p class="mt-1 text-xs text-red-700">Already taken</p> }
+                      @case ('invalid') { <p class="mt-1 text-xs text-red-700">3-20 characters: lowercase letters, numbers, underscores</p> }
+                    }
+                    @if (profile()?.username) {
+                      <p class="mt-1 text-xs text-ink-muted">Your public profile: /users/{{ profile()?.username }}</p>
+                    }
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-ink mb-1.5">Bio</label>
+                    <textarea [(ngModel)]="bioInput" (ngModelChange)="markProfileDirty()" rows="3" maxlength="240"
+                              placeholder="Tell people a little about yourself"
+                              class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm resize-none focus:outline-none focus:ring-2 focus:ring-oxblood/30"></textarea>
+                    <p class="mt-1 text-xs text-ink-muted text-right">{{ bioInput.length }}/240</p>
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-ink mb-1.5">Location <span class="font-normal text-ink-muted">(optional)</span></label>
+                    <input [(ngModel)]="locationInput" (ngModelChange)="markProfileDirty()" placeholder="Atlanta, GA"
+                           class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                  </div>
+
+                  <div>
+                    <label class="block text-sm font-medium text-ink mb-1.5">Tradition <span class="font-normal text-ink-muted">(optional)</span></label>
+                    <div class="relative" (keydown.escape)="closeTraditionDropdown()">
+                      <button type="button" (click)="toggleTraditionDropdown()" [attr.aria-expanded]="traditionDropdownOpen()" aria-haspopup="listbox"
+                              class="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-hairline bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-oxblood/30">
+                        <span class="flex items-center gap-2">
+                          @if (traditionInput) {
+                            <app-tradition-emblem [denomination]="traditionInput" [size]="20" />
+                          }
+                          {{ traditionInput || 'Prefer not to say' }}
+                        </span>
+                        <svg class="w-3.5 h-3.5 text-ink-muted flex-shrink-0 transition-transform" [class.rotate-180]="traditionDropdownOpen()" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                      </button>
+                      @if (traditionDropdownOpen()) {
+                        <div class="fixed inset-0 z-40" (click)="closeTraditionDropdown()"></div>
+                        <div role="listbox" class="absolute left-0 right-0 top-full mt-1 z-50 max-h-72 overflow-y-auto py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
+                          <button type="button" role="option" (click)="selectTradition('')" class="w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-parchment"
+                                  [class]="!traditionInput ? 'text-oxblood font-semibold' : 'text-ink'">
+                            Prefer not to say
+                          </button>
+                          @for (d of DENOMINATIONS; track d) {
+                            <button type="button" role="option" (click)="selectTradition(d)" class="w-full flex items-center gap-2 text-left px-3 py-2 text-sm hover:bg-parchment"
+                                    [class]="traditionInput === d ? 'text-oxblood font-semibold' : 'text-ink'">
+                              <app-tradition-emblem [denomination]="d" [size]="20" />
+                              {{ d }}
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-6 pt-5 border-t border-hairline flex items-center gap-3">
+                  <button type="button" (click)="saveProfile()" [disabled]="!profileDirty() || savingProfile()"
+                          class="px-4 py-2 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark disabled:opacity-40 transition-colors">
+                    {{ savingProfile() ? 'Saving…' : 'Save changes' }}
+                  </button>
+                  @if (profileSaved() && !profileDirty()) {
+                    <p class="text-sm text-oxblood">Changes saved</p>
+                  }
+                  @if (profileError()) {
+                    <p class="text-sm text-red-700">{{ profileError() }}</p>
+                  }
+                  @if (profile()?.username) {
+                    <a [routerLink]="['/users', profile()?.username]" class="ml-auto text-sm font-medium text-ink-muted hover:text-oxblood transition-colors">View public profile →</a>
+                  }
+                </div>
+              </div>
+            }
+
+            @case ('account') {
+              <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                <h2 class="text-lg font-serif font-semibold text-ink mb-5">Account</h2>
+
+                <dl class="space-y-3 text-sm mb-6 pb-6 border-b border-hairline">
+                  <div class="flex justify-between gap-4">
+                    <dt class="text-ink-muted">Email</dt>
+                    <dd class="text-ink">{{ profile()?.email }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-4">
+                    <dt class="text-ink-muted">Account access</dt>
+                    <dd class="text-ink-muted">{{ roleLabel(profile()?.role ?? '') }}</dd>
+                  </div>
+                </dl>
+                <p class="text-xs text-ink-muted mb-6 pb-6 border-b border-hairline">Email changes aren't supported yet — contact support if you need to update it.</p>
+
+                <h3 class="text-sm font-semibold text-ink mb-3">Change password</h3>
+                <div class="space-y-3 max-w-sm">
+                  <input type="password" [(ngModel)]="currentPassword" placeholder="Current password"
+                         class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                  <input type="password" [(ngModel)]="newPassword" placeholder="New password"
+                         class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                  <input type="password" [(ngModel)]="confirmPassword" placeholder="Confirm new password"
+                         class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                </div>
+                <div class="mt-4 flex items-center gap-3">
+                  <button type="button" (click)="changePassword()" [disabled]="changingPassword() || !currentPassword || !newPassword"
+                          class="px-4 py-2 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark disabled:opacity-40 transition-colors">
+                    {{ changingPassword() ? 'Updating…' : 'Update password' }}
+                  </button>
+                  @if (passwordChanged()) {
+                    <p class="text-sm text-oxblood">Password updated</p>
+                  }
+                  @if (passwordError()) {
+                    <p class="text-sm text-red-700">{{ passwordError() }}</p>
+                  }
+                </div>
+              </div>
+            }
+
+            @case ('preferences') {
+              <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                <h2 class="text-lg font-serif font-semibold text-ink mb-5">Preferences</h2>
+                <h3 class="text-sm font-semibold text-ink mb-2">Learn</h3>
+                @if (savedQuizCount() === null) {
+                  <div class="w-4 h-4 rounded-full border-2 border-oxblood border-t-transparent animate-spin"></div>
+                } @else if (savedQuizCount() === 0) {
+                  <p class="text-sm text-ink-muted">You haven't saved any denomination quiz results yet.</p>
+                } @else {
+                  <p class="text-sm text-ink-muted">
+                    You have {{ savedQuizCount() }} saved quiz result{{ savedQuizCount() !== 1 ? 's' : '' }}.
+                    <a routerLink="/learn/denomination-quiz/results" class="text-oxblood font-medium hover:underline">Manage in Learn →</a>
+                  </p>
+                }
+              </div>
+            }
+
+            @case ('privacy') {
+              <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                <h2 class="text-lg font-serif font-semibold text-ink mb-1">Privacy</h2>
+                <p class="text-xs text-ink-muted mb-5">Control what your public profile shows.</p>
+
+                <h3 class="text-sm font-semibold text-ink mb-2">Profile visibility</h3>
+                <div class="space-y-2 mb-6">
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="radio" name="visibility" value="PUBLIC" [(ngModel)]="visibilityInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" />
+                    Public — anyone can view your profile
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="radio" name="visibility" value="MEMBERS_ONLY" [(ngModel)]="visibilityInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" />
+                    EveryChurch members only
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="radio" name="visibility" value="PRIVATE" [(ngModel)]="visibilityInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" />
+                    Private — only you
+                  </label>
+                </div>
+
+                <h3 class="text-sm font-semibold text-ink mb-2">Show on your profile</h3>
+                <div class="space-y-2 mb-6">
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="checkbox" [(ngModel)]="showLocationInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" /> Location
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="checkbox" [(ngModel)]="showTraditionInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" /> Tradition
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="checkbox" [(ngModel)]="showHomeChurchInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" /> Home church
+                  </label>
+                  <label class="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="checkbox" [(ngModel)]="showFollowingInput" (ngModelChange)="markPrivacyDirty()" class="accent-oxblood" /> Churches you follow
+                  </label>
+                </div>
+
+                <div class="pt-5 border-t border-hairline flex items-center gap-3">
+                  <button type="button" (click)="savePrivacy()" [disabled]="!privacyDirty() || savingPrivacy()"
+                          class="px-4 py-2 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark disabled:opacity-40 transition-colors">
+                    {{ savingPrivacy() ? 'Saving…' : 'Save changes' }}
+                  </button>
+                  @if (privacySaved() && !privacyDirty()) {
+                    <p class="text-sm text-oxblood">Changes saved</p>
+                  }
+                </div>
+              </div>
+            }
+
+            @case ('connections') {
+              <div class="space-y-5">
+
+                <!-- Home church -->
+                <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                  <h2 class="text-lg font-serif font-semibold text-ink mb-1">Your church</h2>
+                  <p class="text-xs text-ink-muted mb-4">Optional — powers your profile and, later, feed personalization.</p>
+                  @if (homeChurchName) {
+                    <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-parchment">
+                      <span class="text-sm text-ink font-medium">{{ homeChurchName }}</span>
+                      <button type="button" (click)="clearHomeChurch()" class="text-xs text-ink-muted hover:text-red-700">Remove</button>
+                    </div>
+                  } @else {
+                    <div class="relative" (keydown.escape)="closeHomeChurchDropdown()">
+                      <input [(ngModel)]="homeChurchQuery" (ngModelChange)="onHomeChurchInput()" (focus)="onHomeChurchInput()" autocomplete="off"
+                             placeholder="Search for your church…"
+                             class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-oxblood/30" />
+                      @if (homeChurchDropdownOpen() && homeChurchResults().length) {
+                        <div class="fixed inset-0 z-40" (click)="closeHomeChurchDropdown()"></div>
+                        <div class="absolute left-0 right-0 top-full mt-1 z-50 max-h-64 overflow-y-auto py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
+                          @for (c of homeChurchResults(); track c.id) {
+                            <button type="button" (click)="selectHomeChurch(c)" class="w-full text-left px-3 py-2 text-sm text-ink hover:bg-parchment">
+                              {{ c.name }} <span class="text-ink-muted">· {{ c.city }}, {{ c.state }}</span>
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
+                  }
+                  @if (profileDirty() && homeChurchName !== (profile()?.homeChurchName ?? '')) {
+                    <p class="mt-3 text-xs text-ink-muted">Saved from the Profile tab — <button type="button" (click)="saveProfile()" class="text-oxblood font-medium hover:underline">save now</button>.</p>
+                  }
+                </div>
+
+                @if (!connectionsLoaded()) {
+                  <div class="flex justify-center py-10">
+                    <div class="w-6 h-6 rounded-full border-2 border-oxblood border-t-transparent animate-spin"></div>
+                  </div>
+                } @else {
+                  <!-- Following -->
+                  <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                    <h2 class="text-lg font-serif font-semibold text-ink mb-4">Churches you follow</h2>
+                    @if (following().length === 0) {
+                      <p class="text-sm text-ink-muted">You're not following any churches yet.</p>
+                    } @else {
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @for (c of following(); track c.id) {
+                          <a [routerLink]="['/churches', c.id]" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-parchment hover:bg-gold/10 transition-colors">
+                            <app-tradition-emblem [denomination]="c.denomination" [size]="24" />
+                            <span class="text-sm text-ink truncate">{{ c.name }}</span>
+                          </a>
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Managed -->
+                  @if (managedChurches().length > 0) {
+                    <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                      <h2 class="text-lg font-serif font-semibold text-ink mb-4">Churches you manage</h2>
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        @for (c of managedChurches(); track c.id) {
+                          <a [routerLink]="['/churches', c.id]" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-parchment hover:bg-gold/10 transition-colors">
+                            <app-tradition-emblem [denomination]="c.denomination" [size]="24" />
+                            <span class="text-sm text-ink truncate">{{ c.name }}</span>
+                          </a>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Pending claims -->
+                  @if (pendingClaims().length > 0) {
+                    <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+                      <h2 class="text-lg font-serif font-semibold text-ink mb-4">Church claims</h2>
+                      <div class="space-y-2">
+                        @for (claim of pendingClaims(); track claim.id) {
+                          <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-parchment">
+                            <span class="text-sm text-ink">{{ claim.churchName }}</span>
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                                  [class]="claim.status === 'PENDING' ? 'bg-gold/15 text-oxblood' : claim.status === 'APPROVED' ? 'bg-oxblood/10 text-oxblood' : 'bg-red-100 text-red-700'">
+                              {{ claim.status }}
+                            </span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            }
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}

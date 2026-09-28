@@ -20,7 +20,7 @@
       <h1 #questionHeading tabindex="-1" style="font-size: 2rem">
         {{ q.question }}
       </h1>
-      <details class="card">
+      <details class="card" #explainDetails>
         <summary>Explain this</summary>
         <p>{{ q.explanation }}</p>
         <ul>

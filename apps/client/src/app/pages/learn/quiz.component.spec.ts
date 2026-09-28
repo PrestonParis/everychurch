@@ -30,6 +30,15 @@ const catalog = {
       options: [{ id: 'infants', label: 'Infants and believers' }],
       sources: [],
     },
+    {
+      id: 'worship',
+      title: 'Worship style',
+      category: 'worship',
+      question: 'How formal is the service?',
+      explanation: 'A question about worship style.',
+      options: [{ id: 'liturgical', label: 'Liturgical' }],
+      sources: [],
+    },
   ],
 };
 describe('Denomination quiz', () => {
@@ -85,6 +94,52 @@ describe('Denomination quiz', () => {
     expect(localStorage.length).toBe(0);
     TestBed.inject(FaithService).clear();
     expect(TestBed.inject(FaithService).request()).toBeNull();
+    http.verify();
+  });
+  it('closes the "Explain this" disclosure when moving to the next question, instead of leaving it open on the new one', async () => {
+    const fixture = TestBed.createComponent(QuizComponent);
+    const http = TestBed.inject(HttpTestingController);
+    fixture.detectChanges();
+    http.expectOne('/api/learn/quiz').flush(catalog);
+    await fixture.whenStable();
+
+    const details = fixture.nativeElement.querySelector('details') as HTMLDetailsElement;
+    details.open = true;
+
+    fixture.componentInstance.move(1);
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(details.open).toBe(false);
+    // Confirms it's genuinely the next question, not just a closed disclosure
+    // on the same one.
+    expect(fixture.nativeElement.textContent).toContain('How formal is the service?');
+    http.verify();
+  });
+  it('resumes at the previously-viewed question when the component is recreated (an accidental nav-link click and back)', async () => {
+    const first = TestBed.createComponent(QuizComponent);
+    const http = TestBed.inject(HttpTestingController);
+    first.detectChanges();
+    http.expectOne('/api/learn/quiz').flush(catalog);
+    await first.whenStable();
+
+    first.componentInstance.choose('baptism', 'infants');
+    first.componentInstance.move(1); // now on question 2 ("worship")
+    expect(first.componentInstance.index()).toBe(1);
+    first.destroy(); // simulates navigating away (component torn down)
+
+    // A fresh component instance, as routing back to the quiz page creates —
+    // the singleton FaithService is what's expected to carry state across this.
+    const second = TestBed.createComponent(QuizComponent);
+    second.detectChanges();
+    http.expectOne('/api/learn/quiz/versions/v1').flush(catalog);
+    await second.whenStable();
+
+    expect(second.componentInstance.index()).toBe(1);
+    expect(second.nativeElement.textContent).toContain('How formal is the service?');
+    // The earlier answer wasn't lost either, addressing the same underlying
+    // "results get cleared" complaint from the other direction.
+    expect(second.componentInstance.answer('baptism').option).toBe('infants');
     http.verify();
   });
 });

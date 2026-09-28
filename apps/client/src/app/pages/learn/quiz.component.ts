@@ -25,6 +25,7 @@ export class QuizComponent implements OnInit {
   service = inject(FaithService);
   private router = inject(Router);
   @ViewChild('questionHeading') heading?: ElementRef<HTMLElement>;
+  @ViewChild('explainDetails') explainDetails?: ElementRef<HTMLDetailsElement>;
   catalog = signal<FaithCatalog | null>(null);
   index = signal(0);
   answers: Record<string, FaithAnswer> = {};
@@ -39,6 +40,12 @@ export class QuizComponent implements OnInit {
         next: (c) => {
           this.catalog.set(c);
           this.answers = structuredClone(previous?.answers ?? {});
+          // Resume on the question the user was last on (e.g. after an
+          // accidental nav-link click away and back) rather than restarting
+          // at question 1 — clamped in case the remembered index is stale
+          // against this catalog's actual length.
+          const resumeAt = this.service.questionIndex();
+          this.index.set(Math.min(Math.max(resumeAt, 0), c.dimensions.length - 1));
         },
         error: (e) => this.error.set(faithError(e)),
       });
@@ -67,6 +74,12 @@ export class QuizComponent implements OnInit {
   move(delta: number) {
     this.remember();
     this.index.update((i) => i + delta);
+    this.service.questionIndex.set(this.index());
+    // Native <details> state isn't reset by Angular's control flow (the same
+    // element persists across questions, only its content changes), so an
+    // explanation left open on one question would otherwise still show open
+    // on the next — close it explicitly on every navigation.
+    if (this.explainDetails) this.explainDetails.nativeElement.open = false;
     setTimeout(() => this.heading?.nativeElement.focus());
   }
   finish() {

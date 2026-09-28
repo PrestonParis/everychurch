@@ -27,6 +27,11 @@ export class FaithService {
   // In-memory only. Anonymous answers never go into URLs, analytics or persistent browser storage.
   request = signal<FaithEvaluation | null>(null);
   result = signal<FaithResult | null>(null);
+  // Which question the quiz was on — kept separate from `request` (the actual
+  // server payload) so navigating away and back (e.g. an accidental nav-link
+  // click) resumes where the user left off instead of dropping them back at
+  // question 1, even though their answers were never actually lost either way.
+  questionIndex = signal(0);
   catalog(version?: string) {
     return this.http.get<FaithCatalog>(
       version
@@ -67,6 +72,7 @@ export class FaithService {
   clear() {
     this.request.set(null);
     this.result.set(null);
+    this.questionIndex.set(0);
   }
 }
 export function faithError(error: HttpErrorResponse): string {

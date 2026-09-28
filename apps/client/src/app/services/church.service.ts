@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { Church, PagedResult } from '../models/church.model';
 
 export interface ChurchSearchParams {
@@ -21,6 +21,18 @@ export interface ChurchSearchParams {
 export class ChurchService {
   private http = inject(HttpClient);
   private base = '/api/churches';
+
+  /** Clicking "Browse" (app.ts) while already on the directory page is a same-URL
+   *  routerLink navigation, which the Router silently ignores by default — no
+   *  NavigationEnd, no component recreation, so any active search/filters just sit
+   *  there looking like the click did nothing. ChurchListComponent listens on this
+   *  to reset itself directly instead, since there's no routed-component recreation
+   *  to hook into. */
+  private readonly resetBrowseSubject = new Subject<void>();
+  readonly resetBrowse$ = this.resetBrowseSubject.asObservable();
+  resetBrowse() {
+    this.resetBrowseSubject.next();
+  }
 
   search(params: ChurchSearchParams = {}): Observable<PagedResult<Church>> {
     let httpParams = new HttpParams()
@@ -46,14 +58,6 @@ export class ChurchService {
 
   suggestStates(prefix: string): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/states`, { params: new HttpParams().set('prefix', prefix) });
-  }
-
-  nearest(lat: number, lng: number, radiusMeters?: number, limit?: number): Observable<Church[]> {
-    let httpParams = new HttpParams().set('lat', String(lat)).set('lng', String(lng));
-    if (radiusMeters !== undefined) httpParams = httpParams.set('radiusMeters', String(radiusMeters));
-    if (limit !== undefined) httpParams = httpParams.set('limit', String(limit));
-
-    return this.http.get<Church[]>(`${this.base}/nearest`, { params: httpParams });
   }
 
   getById(id: number): Observable<Church> {

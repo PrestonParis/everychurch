@@ -100,9 +100,27 @@ export class ChatService {
     };
   }
 
-  /** ws:// or wss:// on the page's own origin — the dev proxy (and any real reverse proxy) forwards /ws. */
+  // Vercel serves the client and proxies /api/** to the Cloud Run API via a
+  // vercel.json rewrite (an ordinary HTTP request/response, which it handles
+  // fine) — but confirmed live that it does NOT proxy a raw WebSocket upgrade
+  // the same way (the connection fails outright). So on the deployed
+  // domains specifically, this connects straight to the API's own host,
+  // bypassing Vercel for just this one connection.
+  //
+  // TODO: revisit if the API gets its own subdomain (e.g. api.everychurch.co)
+  // — that would let this go back to a single same-origin rule everywhere,
+  // rather than hardcoding the Cloud Run hostname here.
+  private static readonly PROD_API_WS_ORIGIN = 'wss://everychurch-server-274948593192.us-east1.run.app';
+  private static readonly PROXIED_HOSTS = ['everychurch.co', 'www.everychurch.co'];
+
+  /** ws:// or wss:// on the page's own origin for local dev (the dev proxy forwards
+   *  /ws) — see PROD_API_WS_ORIGIN above for why the deployed site is a special case. */
   private brokerUrl(): string {
+    const host = window.location.host;
+    if (ChatService.PROXIED_HOSTS.includes(host) || host.endsWith('.vercel.app')) {
+      return `${ChatService.PROD_API_WS_ORIGIN}/ws/websocket`;
+    }
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    return `${scheme}://${window.location.host}/ws/websocket`;
+    return `${scheme}://${host}/ws/websocket`;
   }
 }

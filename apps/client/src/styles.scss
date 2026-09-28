@@ -4,6 +4,73 @@
 
 /* You can add global styles to this file, and also import other style files */
 
+/*
+ * Theme tokens as CSS custom properties, switched by the OS-level color-scheme
+ * preference (@media prefers-color-scheme) rather than a manual toggle — see
+ * tailwind.config.js, which points every oxblood/gold/parchment/ink/hairline
+ * utility class at these variables instead of a fixed hex value. That's what
+ * makes every existing `bg-parchment`/`text-ink`/`bg-oxblood`/etc. usage across
+ * the app switch automatically with zero changes to any component template.
+ * faith.scss (the Learn feature, which predates the Tailwind token system) reads
+ * the same variables directly, so both palettes flip from one source of truth.
+ *
+ * Values are space-separated "R G B" triplets, not hex — that's what lets
+ * Tailwind's opacity modifiers (bg-oxblood/10, ring-gold/50, etc., used all over
+ * the existing templates) keep working: they expand to rgb(var(--color-x) /
+ * <alpha>), which only works with this triplet format, not a hex string.
+ *
+ * Dark values aren't literal color inversions — each one preserves roughly the
+ * same *contrast relationship* to its neighbors that the light value has (e.g.
+ * ink-muted is dimmer than ink but still clearly readable; oxblood is brightened
+ * rather than darkened, since the light-mode value is too dark to read as text
+ * against a near-black background) rather than just running the light palette
+ * through a filter.
+ */
+:root {
+  --color-parchment: 250 246 238; /* #FAF6EE */
+  --color-surface: 255 253 248; /* #FFFDF8 */
+  --color-ink: 43 38 34; /* #2B2622 */
+  --color-ink-muted: 107 98 88; /* #6B6258 */
+  --color-oxblood: 122 35 49; /* #7A2331 */
+  --color-oxblood-dark: 95 27 38; /* #5F1B26 */
+  --color-gold: 184 146 74; /* #B8924A */
+  --color-hairline: 228 220 200; /* #E4DCC8 */
+  /* Native form controls, scrollbars, etc. should also switch, not just this
+   * app's own colors. */
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-parchment: 26 21 18; /* #1A1512 */
+    --color-surface: 42 35 29; /* #2A231D */
+    --color-ink: 237 230 220; /* #EDE6DC */
+    --color-ink-muted: 166 156 142; /* #A69C8E */
+    /* Lighter than the light-mode value on purpose — #7A2331 reads as near-black
+     * text against a near-black page background. Doubles as both the accent
+     * text/icon color and button-fill color (one token, both uses — see the
+     * comment above), so it's chosen as a middle ground that clears WCAG AA
+     * (4.5:1) for white button text and stays legible (~3.7:1) as small accent
+     * text on the dark page background. */
+    --color-oxblood: 194 70 91; /* #C2465B */
+    /* The hover/pressed shade — brightened relative to the base, not darkened,
+     * since darkening an already-midtone color further toward the near-black
+     * background would make the hover state barely perceptible. */
+    --color-oxblood-dark: 210 89 107; /* #D2596B */
+    --color-gold: 209 168 92; /* #D1A85C */
+    --color-hairline: 64 56 48; /* #403830 */
+  }
+
+  /* A handful of pages still use Tailwind's stock palette directly (text-red-700
+   * for form/validation errors) rather than the token system above — that
+   * default red is calibrated for a white background and drops to ~2.8:1
+   * contrast against the dark page background (fails WCAG AA). Overridden here
+   * rather than editing every template that uses it. */
+  .text-red-700 {
+    color: #F87171;
+  }
+}
+
 @layer base {
   body {
     @apply bg-parchment text-ink font-sans;

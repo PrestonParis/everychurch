@@ -56,6 +56,19 @@ export class ChurchMapComponent implements OnInit {
     return this.locationQuery() !== null;
   }
 
+  /** Always the human-readable address (never the lat/lng pair locationQuery prefers
+   *  once geocoded) — this is what's shown as text under the map. */
+  get displayAddress(): string | null {
+    const parts = [this.address(), this.city(), this.state(), this.zipCode()].filter((p) => !!p);
+    return parts.length > 0 ? parts.join(', ') : null;
+  }
+
+  get googleMapsUrl(): string | null {
+    const query = this.locationQuery();
+    if (!query) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  }
+
   get embedUrl(): SafeResourceUrl | null {
     const key = this._embedKey();
     const query = this.locationQuery();

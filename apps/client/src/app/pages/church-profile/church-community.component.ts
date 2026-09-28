@@ -39,6 +39,8 @@ export class ChurchCommunityComponent implements OnInit {
   }
 
   private refresh() {
+    this.loading.set(true);
+    this.error.set('');
     this.memberService.status(this.churchId()).subscribe({
       next: (status) => {
         this.status.set(status);
@@ -46,11 +48,20 @@ export class ChurchCommunityComponent implements OnInit {
         if (status.canChat) this.loadMembers();
         else this.members.set([]);
       },
-      error: () => {
-        this.error.set('Could not load your membership status.');
+      error: (err) => {
+        // Surfaced as a neutral, recoverable message (see template) rather than a
+        // bright-red failure — this is routine (logged-out edge cases, a slow
+        // request) not something the viewer did wrong. Technical detail stays here,
+        // in the console, not in the page.
+        console.error('Failed to load membership status', err);
+        this.error.set('Community information is temporarily unavailable.');
         this.loading.set(false);
       },
     });
+  }
+
+  retry() {
+    this.refresh();
   }
 
   private loadMembers() {

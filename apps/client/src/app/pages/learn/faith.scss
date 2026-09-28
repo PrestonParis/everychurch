@@ -1,9 +1,38 @@
+/*
+ * Predates the Tailwind color-token system (tailwind.config.js) that the rest of
+ * the app now uses, so this reads the same global CSS custom properties
+ * (styles.scss :root) directly rather than duplicating a second, slightly-off
+ * hardcoded palette that a global dark-mode change wouldn't have reached. A
+ * handful of values here (the muted-gold eyebrow accent, the tan panel
+ * background, the error/focus colors, form input borders) have no equivalent
+ * among the 8 global tokens, so those get their own --faith-* variables,
+ * defined the same way (light in :host, overridden under prefers-color-scheme).
+ */
 :host {
   display: block;
-  color: #302923;
-  background: #f7f4ec;
+  color: rgb(var(--color-ink));
+  background: rgb(var(--color-parchment));
   min-height: calc(100vh - 4rem);
+
+  --faith-eyebrow: #795c35;
+  --faith-tan-bg: #eee5d5;
+  --faith-error-text: #9e2020;
+  --faith-error-bg: #fff0ef;
+  --faith-input-border: #b8ae9f;
+  --faith-selected-bg: #f6eaf0;
 }
+
+@media (prefers-color-scheme: dark) {
+  :host {
+    --faith-eyebrow: #c9a76b;
+    --faith-tan-bg: #332b22;
+    --faith-error-text: #f87171;
+    --faith-error-bg: #3a1f1f;
+    --faith-input-border: #55493c;
+    --faith-selected-bg: #3a2229;
+  }
+}
+
 .faith-shell {
   max-width: 72rem;
   margin: auto;
@@ -16,7 +45,7 @@
   font-size: 0.75rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #795c35;
+  color: var(--faith-eyebrow);
   font-weight: 600;
   margin-bottom: 1rem;
 }
@@ -43,7 +72,7 @@ p {
   margin: 0.5rem 0 1rem;
 }
 a {
-  color: #742f3e;
+  color: rgb(var(--color-oxblood));
   text-underline-offset: 3px;
 }
 a:hover {
@@ -51,14 +80,14 @@ a:hover {
 }
 .card {
   padding: 1.5rem;
-  border: 1px solid #ddd5c9;
+  border: 1px solid rgb(var(--color-hairline));
   border-radius: 1rem;
-  background: #fffdf8;
+  background: rgb(var(--color-surface));
   margin: 1rem 0;
 }
 .hero {
   padding: clamp(1.5rem, 4vw, 3.5rem);
-  background: #eee5d5;
+  background: var(--faith-tan-bg);
   border-radius: 1.5rem;
   margin: 1rem 0 2rem;
 }
@@ -73,17 +102,18 @@ a:hover {
 .button,
 button {
   cursor: pointer;
-  border: 1px solid #d5c9b8;
+  border: 1px solid var(--faith-input-border);
   border-radius: 0.6rem;
   padding: 0.7rem 1rem;
   font-weight: 600;
-  background: #fffdf8;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
   display: inline-block;
 }
 .primary {
-  background: #742f3e;
+  background: rgb(var(--color-oxblood));
   color: white;
-  border-color: #742f3e;
+  border-color: rgb(var(--color-oxblood));
 }
 button:disabled {
   opacity: 0.55;
@@ -97,7 +127,7 @@ button:disabled {
   margin: 1.25rem 0;
 }
 .muted {
-  color: #6d6358;
+  color: rgb(var(--color-ink-muted));
   font-size: 0.9rem;
 }
 label {
@@ -110,38 +140,38 @@ select,
 textarea {
   display: block;
   width: 100%;
-  border: 1px solid #b8ae9f;
+  border: 1px solid var(--faith-input-border);
   border-radius: 0.5rem;
-  background: white;
+  background: rgb(var(--color-surface));
   padding: 0.7rem;
   margin-top: 0.4rem;
-  color: #302923;
+  color: rgb(var(--color-ink));
 }
 input[type='radio'],
 input[type='checkbox'] {
-  accent-color: #742f3e;
+  accent-color: rgb(var(--color-oxblood));
   margin-right: 0.6rem;
 }
 .option {
   padding: 1rem;
-  border: 1px solid #ddd5c9;
+  border: 1px solid rgb(var(--color-hairline));
   border-radius: 0.7rem;
   display: flex;
   align-items: baseline;
-  background: #fffdf8;
+  background: rgb(var(--color-surface));
 }
 .option:has(input:checked) {
-  border-color: #742f3e;
-  background: #f6eaf0;
+  border-color: rgb(var(--color-oxblood));
+  background: var(--faith-selected-bg);
 }
 :focus-visible {
-  outline: 3px solid #9a793e;
+  outline: 3px solid var(--faith-eyebrow);
   outline-offset: 3px;
 }
 progress {
   width: 100%;
   height: 0.5rem;
-  accent-color: #742f3e;
+  accent-color: rgb(var(--color-oxblood));
 }
 summary {
   cursor: pointer;
@@ -149,22 +179,22 @@ summary {
   padding: 0.5rem 0;
 }
 .error {
-  color: #9e2020;
+  color: var(--faith-error-text);
   padding: 1rem;
-  background: #fff0ef;
+  background: var(--faith-error-bg);
   border-radius: 0.5rem;
 }
 .notice {
-  border-left: 3px solid #a3854a;
+  border-left: 3px solid rgb(var(--color-gold));
   padding: 0.5rem 1rem;
-  background: #eee5d5;
+  background: var(--faith-tan-bg);
 }
 .badge {
   display: inline-block;
   font-size: 0.75rem;
   padding: 0.25rem 0.55rem;
   border-radius: 2rem;
-  background: #eee5d5;
+  background: var(--faith-tan-bg);
   margin: 0.25rem 0.25rem 0.25rem 0;
 }
 .stat {
@@ -179,6 +209,86 @@ li {
   margin: 0.5rem 0;
 }
 hr {
-  border-top: 1px solid #ddd5c9;
+  border-top: 1px solid rgb(var(--color-hairline));
   margin: 1.5rem 0;
+}
+.quick-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: 1px;
+  background: rgb(var(--color-hairline));
+  border: 1px solid rgb(var(--color-hairline));
+  border-radius: 1rem;
+  overflow: hidden;
+  margin: 1.5rem 0;
+}
+.quick-fact {
+  background: rgb(var(--color-surface));
+  padding: 1rem 1.25rem;
+}
+.quick-fact .muted {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.quick-fact .stat {
+  margin: 0;
+}
+/* A plain in-page jump list, not styled as buttons — it's a table of contents
+ * for the sections below, not a set of separate actions. */
+.section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  padding: 1rem 0;
+  margin-bottom: 1rem;
+  border-top: 1px solid rgb(var(--color-hairline));
+  border-bottom: 1px solid rgb(var(--color-hairline));
+}
+.section-nav a {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgb(var(--color-ink-muted));
+}
+.section-nav a:hover {
+  color: rgb(var(--color-oxblood));
+}
+.doctrine-entry {
+  padding: 1rem 0;
+  border-bottom: 1px solid rgb(var(--color-hairline));
+}
+.doctrine-entry:last-child {
+  border-bottom: none;
+}
+.doctrine-entry h3 {
+  font-size: 1rem;
+  margin-bottom: 0.3rem;
+}
+.doctrine-entry .stat {
+  color: rgb(var(--color-oxblood));
+  margin: 0 0 0.4rem;
+}
+/* The hub's topic-group preview — deliberately NOT card-shaped or hover-styled,
+ * since these are an honest table of contents (no topic pages to link to yet),
+ * not a nav that looks clickable but silently does nothing. */
+.topic-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0 2rem;
+}
+.topic-group h3 {
+  font-size: 0.95rem;
+}
+.family-heading {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faith-eyebrow);
+}
+.family-heading:first-of-type {
+  margin-top: 1rem;
 }

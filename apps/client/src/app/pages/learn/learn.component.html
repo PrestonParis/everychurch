@@ -6,33 +6,68 @@
     @if (tradition(); as t) {
       <a routerLink="/learn">← Learn</a>
       <p class="eyebrow">Christian traditions</p>
+      <span class="badge">{{ family(t.id) }}</span>
       <h1>{{ t.name }}</h1>
       <p>{{ t.summary }}</p>
       <p class="notice">
         A sourced introduction, not a complete statement of faith. A local
         church’s confirmed profile takes precedence for local matching.
       </p>
-      <div class="grid">
-        @for (entry of entries(t); track entry.title) {
-          <article class="card">
-            <h3>{{ entry.title }}</h3>
-            <p>{{ entry.label }}</p>
-          </article>
+
+      <div class="actions">
+        @if (denominationFilter(t.id); as denom) {
+          <a class="button primary" routerLink="/churches" [queryParams]="{ denomination: denom }"
+            >Find {{ t.name }} churches →</a
+          >
         }
+        <a routerLink="/learn/denomination-quiz">Explore your alignment</a>
       </div>
-      <h2>Read the original sources</h2>
-      <ul>
-        @for (source of t.sources; track source.url) {
-          <li>
-            <a [href]="source.url" target="_blank" rel="noopener noreferrer"
-              >{{ source.title }} ↗</a
-            >
-          </li>
+
+      @if (quickFacts(t); as facts) {
+        @if (facts.length > 0) {
+          <div class="quick-facts">
+            @for (fact of facts; track fact.label) {
+              <div class="quick-fact">
+                <p class="muted">{{ fact.label }}</p>
+                <p class="stat">{{ fact.value }}</p>
+              </div>
+            }
+          </div>
         }
-      </ul>
-      <a class="button primary" routerLink="/learn/denomination-quiz"
-        >Explore your alignment</a
-      >
+      }
+
+      <nav class="section-nav" aria-label="Jump to section">
+        @for (section of sectionsFor(t); track section.id) {
+          <a [href]="'#' + section.id">{{ section.title }}</a>
+        }
+        <a href="#sources">Sources</a>
+      </nav>
+
+      @for (section of sectionsFor(t); track section.id) {
+        <section [id]="section.id">
+          <h2>{{ section.title }}</h2>
+          @for (entry of section.entries; track entry.title) {
+            <article class="doctrine-entry">
+              <h3>{{ entry.title }}</h3>
+              <p class="stat">{{ entry.label }}</p>
+              <p class="muted">{{ entry.explanation }}</p>
+            </article>
+          }
+        </section>
+      }
+
+      <section id="sources">
+        <h2>Primary sources</h2>
+        <ul>
+          @for (source of t.sources; track source.url) {
+            <li>
+              <a [href]="source.url" target="_blank" rel="noopener noreferrer"
+                >{{ source.title }} ↗</a
+              >
+            </li>
+          }
+        </ul>
+      </section>
     } @else if (!slug) {
       <p class="eyebrow">EveryChurch · Learn</p>
       <section class="hero">
@@ -44,52 +79,53 @@
         <div class="actions">
           <a class="button primary" routerLink="/learn/denomination-quiz"
             >Take the denomination quiz →</a
-          ><a routerLink="/learn/denomination-quiz/results">Your results</a>
+          ><a routerLink="/learn/denomination-quiz/results">Your results</a
+          ><a href="#traditions">Browse traditions ↓</a>
         </div>
         <p class="muted">
           {{ c.dimensions.length }} questions · No account needed · It’s okay to
           be unsure
         </p>
       </section>
-      <div class="grid">
-        <article class="card">
-          <h3>Beliefs, explained</h3>
-          <p>
-            Explore baptism, Communion, spiritual gifts and church authority
-            with plain-language explanations.
-          </p>
-        </article>
-        <article class="card">
-          <h3>Your spiritual life</h3>
-          <p>
-            Consider prayer, Scripture study, liturgy and the devotions you’d
-            like to practice.
-          </p>
-        </article>
-        <article class="card">
-          <h3>Churches, with context</h3>
-          <p>
-            See agreements, differences and unanswered questions using
-            information confirmed by each church.
-          </p>
-        </article>
-      </div>
-      <h2>Explore Christian traditions</h2>
+
+      <h2>What’s inside a tradition profile</h2>
       <p class="muted">
-        This first reference library covers the bodies below. Other traditions
-        remain welcome in the directory and can publish their own church
-        profiles.
+        Every tradition below is organized the same way — so once you know your
+        way around one, you can compare any of them like with like.
       </p>
-      <div class="grid">
-        @for (t of c.traditions; track t.id) {
-          <article class="card">
-            <h3>
-              <a [routerLink]="['/learn/traditions', t.id]">{{ t.name }} →</a>
-            </h3>
-            <p class="muted">{{ t.summary }}</p>
-          </article>
+      <div class="topic-groups">
+        @for (group of hubTopicGroups; track group.title) {
+          <div class="topic-group">
+            <h3>{{ group.title }}</h3>
+            <div>
+              @for (topic of group.topics; track topic) {
+                <span class="badge">{{ topic }}</span>
+              }
+            </div>
+          </div>
         }
       </div>
+
+      <h2 id="traditions">Explore Christian traditions</h2>
+      <p class="muted">
+        This first reference library covers the bodies below, grouped by family.
+        Other traditions remain welcome in the directory and can publish their
+        own church profiles.
+      </p>
+      @for (group of groupedTraditions(c); track group.family) {
+        <h3 class="family-heading">{{ group.family }}</h3>
+        <div class="grid">
+          @for (t of group.traditions; track t.id) {
+            <article class="card">
+              <span class="badge">{{ family(t.id) }}</span>
+              <h3>
+                <a [routerLink]="['/learn/traditions', t.id]">{{ t.name }} →</a>
+              </h3>
+              <p class="muted">{{ t.summary }}</p>
+            </article>
+          }
+        </div>
+      }
       <p class="muted" style="margin-top: 2rem">{{ c.notice }}</p>
     }
   } @else if (!error()) {

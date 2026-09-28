@@ -1,6 +1,20 @@
 const { createGlobPatternsForDependencies } = require('@nx/angular/tailwind');
 const { join } = require('path');
 
+/**
+ * Wraps a "--color-x: R G B" custom property (see styles.scss :root) so Tailwind's
+ * opacity modifiers (bg-oxblood/10, ring-gold/50, etc. — used throughout the
+ * existing templates) still work: `rgb(var(--color-x) / <alpha>)` only resolves
+ * correctly when the variable holds a space-separated triplet, not a hex string,
+ * and only when wrapped like this rather than passed as a bare `var(...)` value.
+ */
+function withOpacity(variableName) {
+  return ({ opacityValue }) =>
+    opacityValue === undefined
+      ? `rgb(var(${variableName}))`
+      : `rgb(var(${variableName}) / ${opacityValue})`;
+}
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -9,19 +23,24 @@ module.exports = {
   ],
   theme: {
     extend: {
+      // Each value reads a CSS custom property that flips under
+      // @media (prefers-color-scheme: dark) — see styles.scss. That's what makes
+      // every bg-parchment/text-ink/bg-oxblood/etc. usage across the app switch
+      // automatically with the OS preference, with no per-component dark: variant
+      // needed.
       colors: {
-        parchment: '#FAF6EE',
-        surface: '#FFFDF8',
+        parchment: withOpacity('--color-parchment'),
+        surface: withOpacity('--color-surface'),
         ink: {
-          DEFAULT: '#2B2622',
-          muted: '#6B6258',
+          DEFAULT: withOpacity('--color-ink'),
+          muted: withOpacity('--color-ink-muted'),
         },
         oxblood: {
-          DEFAULT: '#7A2331',
-          dark: '#5F1B26',
+          DEFAULT: withOpacity('--color-oxblood'),
+          dark: withOpacity('--color-oxblood-dark'),
         },
-        gold: '#B8924A',
-        hairline: '#E4DCC8',
+        gold: withOpacity('--color-gold'),
+        hairline: withOpacity('--color-hairline'),
       },
       fontFamily: {
         serif: ['Fraunces', 'ui-serif', 'Georgia', 'serif'],

@@ -1,10 +1,15 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DestroyRef } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { Church, DENOMINATIONS } from '../../models/church.model';
 import { ChurchService } from '../../services/church.service';
 import { FavoriteButtonComponent } from '../../components/favorite-button.component';
+import { TraditionEmblemComponent } from '../../components/tradition-emblem.component';
+import { denomStyle, tintColor, titleCase } from '../../utils/church-display.util';
 
 const PAGE_SIZE = 20;
 const SEED_STORAGE_KEY = 'ec_browse_seed';
@@ -12,13 +17,16 @@ const SEED_STORAGE_KEY = 'ec_browse_seed';
 @Component({
   selector: 'app-church-list',
   standalone: true,
-  imports: [RouterModule, FormsModule, FavoriteButtonComponent],
+  imports: [RouterModule, FormsModule, FavoriteButtonComponent, TraditionEmblemComponent, DecimalPipe],
   templateUrl: './church-list.component.html',
 })
 export class ChurchListComponent implements AfterViewInit, OnDestroy {
   private churchService = inject(ChurchService);
+  private destroyRef = inject(DestroyRef);
+  private route = inject(ActivatedRoute);
 
   @ViewChild('sentinel') sentinel?: ElementRef<HTMLElement>;
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
   private observer?: IntersectionObserver;
 
   readonly DENOMINATIONS = DENOMINATIONS;
@@ -39,6 +47,7 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
   denomDropdownOpen = signal(false);
   cityDropdownOpen = signal(false);
   stateDropdownOpen = signal(false);
+  sortMenuOpen = signal(false);
   citySuggestions = signal<string[]>([]);
   stateSuggestions = signal<string[]>([]);
 
@@ -53,12 +62,21 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
   private filtersChanged = new Subject<string>();
   private citySuggest = new Subject<string>();
   private stateSuggest = new Subject<string>();
-  private nearMeCoords: { lat: number; lng: number } | null = null;
 
   /** Per-browser-session shuffle seed for the default (no-query) result order — see ChurchRepository.search. */
   private readonly sessionSeed = this.getOrCreateSeed();
 
   constructor() {
+    // A deep link from elsewhere in the app (e.g. Learn's "Find {tradition}
+    // churches" — see denominationFilter() there) pre-selects a denomination.
+    // Read once at construction, not reactively — a query param is a starting
+    // point for this visit, not something that should keep fighting the user's
+    // own filter changes afterward.
+    const initialDenomination = this.route.snapshot.queryParamMap.get('denomination');
+    if (initialDenomination && (this.DENOMINATIONS as readonly string[]).includes(initialDenomination)) {
+      this.denomination = initialDenomination;
+    }
+
     this.filtersChanged.pipe(debounceTime(300), distinctUntilChanged()).subscribe(() => this.runSearch(true));
 
     this.citySuggest
@@ -77,6 +95,29 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
 
     this.runSearch(true);
     this.tryPassiveLocation();
+
+    // See ChurchService.resetBrowse$ — clicking "Browse" in the nav while already
+    // on this page is a same-URL routerLink navigation, which the Router ignores,
+    // so app.ts asks us to reset directly instead.
+    this.churchService.resetBrowse$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.resetToDefault());
+  }
+
+  /** Clears every active filter/search and goes back to the default, unfiltered
+   *  browse view — see the resetBrowse$ subscription above. */
+  resetToDefault() {
+    this.query = '';
+    this.denomination = '';
+    this.city = '';
+    this.state = '';
+    this.nearMeActive.set(false);
+    this.knownCoords.set(null);
+    this.locateError.set('');
+    this.filtersOpen.set(false);
+    this.denomDropdownOpen.set(false);
+    this.cityDropdownOpen.set(false);
+    this.stateDropdownOpen.set(false);
+    this.sortMenuOpen.set(false);
+    this.runSearch(true);
   }
 
   private getOrCreateSeed(): string {
@@ -122,9 +163,15 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
     this.observer?.disconnect();
   }
 
-  /** Any text/filter change funnels through here, debounced, and always resets to page 0. */
+  /** Any text/filter change funnels through here, debounced, and always resets to page 0.
+   *  Only a non-blank query drops out of "Near Me" — repo.search only disables geo
+   *  ordering when :query != '' (see ChurchRepository.search's ORDER BY), so changing
+   *  denomination/city/state while Near Me is active should keep it active: the results
+   *  stay sorted by distance (knownCoords still feeds every search call below) and just
+   *  get filtered further, rather than silently relabeling back to "Recommended" while
+   *  secretly still geo-sorted. */
   onFiltersChanged() {
-    this.nearMeActive.set(false);
+    if (this.query.trim()) this.nearMeActive.set(false);
     this.filtersChanged.next(JSON.stringify([this.query, this.denomination, this.city, this.state]));
   }
 
@@ -170,11 +217,19 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
   }
 
   loadMore() {
-    if (this.loading() || this.loadingMore() || this.nearMeActive()) return;
+    if (this.loading() || this.loadingMore()) return;
     if (this.page() + 1 >= this.totalPages()) return;
     this.runSearch(false);
   }
 
+  /** Routes through the same search()/runSearch() path as passive geo-sorting
+   *  (knownCoords) rather than the old separate GET /churches/nearest — that endpoint
+   *  ignored denomination/city/state/query entirely (a denomination filter combined
+   *  with "Near Me" silently searched all denominations), capped results to a flat
+   *  `limit` (default 5, so most matching churches never showed up), and never
+   *  returned enough to compute a distance from. repo.search's geo_point <-> ORDER BY
+   *  already ANDs in every filter and paginates normally — Near Me just needed to
+   *  feed it real (freshly-prompted, not silently-known) coordinates. */
   nearMe() {
     if (!('geolocation' in navigator)) {
       this.locateError.set('This browser does not support location services.');
@@ -186,26 +241,10 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        this.nearMeCoords = { lat: latitude, lng: longitude };
+        this.knownCoords.set({ lat: position.coords.latitude, lng: position.coords.longitude });
         this.locating.set(false);
         this.nearMeActive.set(true);
-        this.loading.set(true);
-        this.error.set(false);
-
-        this.churchService.nearest(latitude, longitude).subscribe({
-          next: (churches) => {
-            this.results.set(churches);
-            this.page.set(0);
-            this.totalPages.set(1);
-            this.totalElements.set(churches.length);
-            this.loading.set(false);
-          },
-          error: () => {
-            this.error.set(true);
-            this.loading.set(false);
-          },
-        });
+        this.runSearch(true);
       },
       () => {
         this.locating.set(false);
@@ -215,15 +254,70 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
     );
   }
 
+  /** Turns off the "Nearest"/"Closest Churches" labeling and re-sorts, but
+   *  deliberately leaves knownCoords set — once location's been shared, default
+   *  browsing stays sorted nearest-first (see tryPassiveLocation) rather than
+   *  reverting to the shuffled order. */
   clearNearMe() {
     this.nearMeActive.set(false);
-    this.nearMeCoords = null;
     this.runSearch(true);
+  }
+
+  /** Haversine distance in miles from the user's known location (see knownCoords) to
+   *  a church's geocoded coordinates — null when either side is missing (no location
+   *  yet, or the church hasn't been geocoded), so the template can hide the badge
+   *  rather than show a false "0 mi away". */
+  distanceMiles(church: Church): number | null {
+    const coords = this.knownCoords();
+    if (!coords || church.latitude == null || church.longitude == null) return null;
+
+    const EARTH_RADIUS_MI = 3958.8;
+    const dLat = this.toRadians(church.latitude - coords.lat);
+    const dLng = this.toRadians(church.longitude - coords.lng);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(this.toRadians(coords.lat)) * Math.cos(this.toRadians(church.latitude)) * Math.sin(dLng / 2) ** 2;
+    return EARTH_RADIUS_MI * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private toRadians(degrees: number): number {
+    return (degrees * Math.PI) / 180;
   }
 
   toggleFilters() {
     this.filtersOpen.set(!this.filtersOpen());
   }
+
+  /** The hero's "Find a church" CTA — scrolls the existing search bar into view
+   *  and focuses it, rather than being yet another button that navigates
+   *  somewhere. There's nowhere else to go: the directory this scrolls to is
+   *  already the whole page. */
+  focusSearch() {
+    this.searchInput?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    this.searchInput?.nativeElement.focus();
+  }
+
+  toggleSortMenu() {
+    this.sortMenuOpen.set(!this.sortMenuOpen());
+  }
+
+  closeSortMenu() {
+    this.sortMenuOpen.set(false);
+  }
+
+  /** Both options are real, existing ordering modes (see runSearch/nearMe) — no
+   *  sort field this app doesn't actually support (e.g. alphabetical would undo the
+   *  earlier fix for numerically-named churches always dominating page one). */
+  selectSort(mode: 'recommended' | 'nearest') {
+    this.sortMenuOpen.set(false);
+    if (mode === 'nearest') {
+      if (!this.nearMeActive()) this.nearMe();
+    } else if (this.nearMeActive()) {
+      this.clearNearMe();
+    }
+  }
+
+  titleCase = titleCase;
 
   browseDenomination(d: string) {
     this.denomination = d;
@@ -281,55 +375,9 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
     this.stateDropdownOpen.set(false);
   }
 
-  /**
-   * Curated per-tradition icon + color, grouped by shared visual family (cross /
-   * flame / book / quatrefoil) and differentiated by hue. Bulk-imported/scraped data
-   * stores denomination as raw abbreviations ("SBC", "NBC", "COC") rather than the
-   * curated DENOMINATIONS labels, so classification below is keyword/substring based
-   * to catch both forms.
-   */
-  private readonly DENOM_STYLES: Record<string, { color: string; icon: DenomIcon }> = {
-    catholic: { color: '#7A2331', icon: 'cross' },
-    baptist: { color: '#1F5C57', icon: 'drop' },
-    churchOfChrist: { color: '#3E4C5C', icon: 'book' },
-    orthodox: { color: '#5B3159', icon: 'orthodoxCross' },
-    episcopal: { color: '#2E4057', icon: 'crossCircle' },
-    evangelical: { color: '#A4542E', icon: 'flame' },
-    lds: { color: '#7A5C1E', icon: 'star' },
-    lutheran: { color: '#5B3A5C', icon: 'cross' },
-    methodist: { color: '#B8792E', icon: 'flame' },
-    nonDenom: { color: '#6B6258', icon: 'quatrefoil' },
-    pentecostal: { color: '#B5451F', icon: 'flame' },
-    presbyterian: { color: '#3F6B4A', icon: 'cross' },
-    adventist: { color: '#2E6B5E', icon: 'book' },
-    other: { color: '#8C8478', icon: 'quatrefoil' },
-  };
-
-  denomStyle(denomination?: string): { color: string; icon: DenomIcon } {
-    const d = (denomination ?? '').toLowerCase();
-    const key =
-      (d.includes('cath') && 'catholic') ||
-      ((d.includes('bapt') || d.includes('sbc') || d.includes('nbc')) && 'baptist') ||
-      (d.includes('coc') && 'churchOfChrist') ||
-      (d.includes('orthodox') && 'orthodox') ||
-      ((d.includes('episcop') || d.includes('anglic')) && 'episcopal') ||
-      (d.includes('evangel') && 'evangelical') ||
-      ((d.includes('latter-day') || d.includes('lds') || d.includes('mormon')) && 'lds') ||
-      (d.includes('luther') && 'lutheran') ||
-      (d.includes('method') && 'methodist') ||
-      ((d.includes('non-denom') || d.includes('nondenom')) && 'nonDenom') ||
-      ((d.includes('pentecost') || d.includes('assembl')) && 'pentecostal') ||
-      (d.includes('presbyter') && 'presbyterian') ||
-      ((d.includes('advent') || d === 'sda') && 'adventist') ||
-      'other';
-    return this.DENOM_STYLES[key];
-  }
-
-  /** Tints a curated hex color for the badge chip's background (e.g. 14% alpha). */
-  tint(hex: string, alpha: number): string {
-    const n = parseInt(hex.slice(1), 16);
-    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-  }
+  /** Curated per-tradition icon + color and its tint helper — shared with the church
+   *  profile hero (see utils/church-display.util) so a tradition reads as the same
+   *  color everywhere in the app. */
+  denomStyle = denomStyle;
+  tint = tintColor;
 }
-
-type DenomIcon = 'cross' | 'orthodoxCross' | 'crossCircle' | 'drop' | 'book' | 'flame' | 'star' | 'quatrefoil';

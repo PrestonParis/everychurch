@@ -1,0 +1,18 @@
+# Local-only build artifacts/caches — Vercel runs its own fresh `npm install` and
+# `npx nx build client`, so none of these are needed, and including them (notably
+# .angular/cache, which briefly broke the build — Nx's project graph choked on it
+# looking like an unnamed project) only slows the upload and risks confusing Nx.
+node_modules
+dist
+.angular
+.nx/cache
+.nx/workspace-data
+
+# Java/Maven (server) and Python (scraper) — not part of this Vercel project at all.
+server/target
+apps/scraper/.venv*
+apps/scraper/__pycache__
+apps/scraper/.pytest_cache
+
+.git
+.env

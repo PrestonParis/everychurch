@@ -12,6 +12,11 @@ export class ClaimService {
     return this.http.post<Claim>(`/api/churches/${churchId}/claims`, { notes: notes.trim() || null });
   }
 
+  /** The claims the caller has submitted themselves — Settings > Church connections. */
+  myClaims(): Observable<Claim[]> {
+    return this.http.get<Claim[]>('/api/users/me/claims');
+  }
+
   // Platform Admin only
   list(status?: ClaimStatus): Observable<Claim[]> {
     return this.http.get<Claim[]>('/api/admin/claims', { params: status ? { status } : {} });

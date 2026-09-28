@@ -8,11 +8,9 @@ import { FavoriteService } from '../services/favorite.service';
  * on a directory card. Always a <button>, never an <a> — the card usage nests this
  * inside the card's own routerLink anchor, and a nested <a> would be invalid HTML.
  *
- * Deliberately not styled to match either of the app's two currently-coexisting
- * palettes (the original slate/indigo pages vs. the in-progress oxblood/gold
- * redesign — see docs/PROMPTS.md) — red-for-favorited/gray-for-not is close enough
- * to a universal convention that it reads fine against either, without needing a
- * variant input just to pick an accent color.
+ * Styled with the oxblood/ink/parchment tokens (muted outline unfavorited, oxblood
+ * on hover/favorited) so it reads as part of the same brand rather than a generic
+ * red-heart convention.
  */
 @Component({
   selector: 'app-favorite-button',

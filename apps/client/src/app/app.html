@@ -1,33 +1,20 @@
 <nav class="sticky top-0 z-50 bg-surface/95 backdrop-blur-sm border-b border-hairline">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-    <a routerLink="/churches" class="flex items-center gap-2 text-xl font-serif font-semibold tracking-tight text-ink hover:opacity-80 transition-opacity">
+    <a routerLink="/churches" class="flex items-center gap-2 text-2xl font-serif font-semibold tracking-tight text-ink hover:opacity-80 transition-opacity">
       <img src="/logo-icon.png" alt="" class="w-8 h-8 shrink-0" aria-hidden="true" />
       Every<span class="text-oxblood">Church</span>
     </a>
-    <div class="flex items-center gap-3 sm:gap-4">
-      <a routerLink="/churches"
-         class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+    <div class="flex items-center gap-3 md:gap-4">
+      <a routerLink="/churches" routerLinkActive #browseLink="routerLinkActive" [routerLinkActiveOptions]="{exact: true}" (click)="browseClick()"
+         [class]="'text-sm transition-colors hidden md:block ' + (browseLink.isActive ? 'text-oxblood font-semibold' : 'font-medium text-ink-muted hover:text-ink')">
         Browse
       </a>
-      <a routerLink="/learn" class="text-sm font-medium text-ink-muted hover:text-ink hidden sm:block">Learn</a>
+      <a routerLink="/learn" class="text-sm font-medium text-ink-muted hover:text-ink hidden md:block">Learn</a>
       <a routerLink="/events"
-         class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+         class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden md:block">
         Events
       </a>
-      @if (authService.isAuthenticated()) {
-        <a routerLink="/feed"
-           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
-          Feed
-        </a>
-        <a routerLink="/favorites"
-           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
-          Favorites
-        </a>
-        <a routerLink="/messages"
-           class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
-          Messages
-        </a>
-      }
+      <div class="hidden md:block w-px h-6 bg-hairline mx-1" aria-hidden="true"></div>
       <a routerLink="/churches/new"
          aria-label="Add a church"
          class="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark transition-colors">
@@ -38,7 +25,7 @@
       </a>
 
       @if (authService.currentUser()?.role === 'PLATFORM_ADMIN') {
-        <div class="relative" (keydown.escape)="closeAdmin()">
+        <div class="relative hidden md:block" (keydown.escape)="closeAdmin()">
           <button (click)="toggleAdmin()" [attr.aria-expanded]="adminOpen()" aria-haspopup="menu"
                   class="flex items-center gap-1 text-sm font-medium text-ink-muted hover:text-ink transition-colors">
             Admin
@@ -61,7 +48,7 @@
       }
 
       @if (authService.isAuthenticated()) {
-        <div class="relative hidden sm:block" (keydown.escape)="closeAccountMenu()">
+        <div class="relative hidden md:block" (keydown.escape)="closeAccountMenu()">
           <button (click)="toggleAccountMenu()" [attr.aria-expanded]="accountMenuOpen()" aria-haspopup="menu"
                   class="flex items-center gap-2 text-sm font-medium text-ink-muted hover:text-ink transition-colors">
             <app-user-avatar [avatarUrl]="authService.currentUser()?.avatarUrl" [displayName]="authService.currentUser()?.displayName ?? ''" />
@@ -72,24 +59,27 @@
           </button>
           @if (accountMenuOpen()) {
             <div class="fixed inset-0 z-40" (click)="closeAccountMenu()"></div>
-            <div role="menu" class="absolute right-0 top-full mt-2 z-50 w-44 py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
-              <a role="menuitem" routerLink="/account" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">My Account</a>
+            <div role="menu" class="absolute right-0 top-full mt-2 z-50 w-48 py-1 rounded-xl bg-surface ring-1 ring-hairline shadow-lg">
+              <a role="menuitem" routerLink="/feed" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Feed</a>
+              <a role="menuitem" routerLink="/favorites" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Favorites</a>
+              <a role="menuitem" routerLink="/messages" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Messages</a>
+              <div class="my-1 border-t border-hairline"></div>
+              <a role="menuitem" routerLink="/settings" (click)="closeAccountMenu()" class="block px-4 py-2 text-sm text-ink hover:bg-parchment">Settings</a>
               <button role="menuitem" (click)="logout()" class="w-full text-left px-4 py-2 text-sm text-ink hover:bg-parchment">Log out</button>
             </div>
           }
         </div>
       } @else {
-        <a routerLink="/login" class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden sm:block">
+        <a routerLink="/login" class="text-sm font-medium text-ink-muted hover:text-ink transition-colors hidden md:block">
           Log in
         </a>
       }
 
-      <!-- Everything above marked `hidden sm:block` (Browse/Events/Feed/Favorites/
-           Messages/Log in-out) has no other way to be reached below `sm` without
-           this — it used to just disappear on a phone. -->
+      <!-- Everything above marked `hidden md:block` has no other way to be reached
+           below `md` without this — it used to just disappear at narrower widths. -->
       <button (click)="toggleMobileMenu()" [attr.aria-expanded]="mobileMenuOpen()" aria-haspopup="menu"
               aria-label="Menu"
-              class="sm:hidden flex items-center justify-center w-9 h-9 rounded-lg text-ink-muted hover:text-ink hover:bg-parchment transition-colors">
+              class="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-ink-muted hover:text-ink hover:bg-parchment transition-colors">
         @if (mobileMenuOpen()) {
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -104,9 +94,10 @@
   </div>
 
   @if (mobileMenuOpen()) {
-    <div class="sm:hidden border-t border-hairline bg-surface" role="menu">
+    <div class="md:hidden border-t border-hairline bg-surface" role="menu">
       <div class="max-w-6xl mx-auto px-4 py-2 flex flex-col">
-        <a role="menuitem" routerLink="/churches" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Browse</a>
+        <a role="menuitem" routerLink="/churches" routerLinkActive #mobileBrowseLink="routerLinkActive" [routerLinkActiveOptions]="{exact: true}" (click)="browseClick(); closeMobileMenu()"
+           [class]="'px-2 py-2.5 text-sm ' + (mobileBrowseLink.isActive ? 'text-oxblood font-semibold' : 'font-medium text-ink-muted hover:text-ink')">Browse</a>
         <a role="menuitem" routerLink="/learn" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Learn</a>
         <a role="menuitem" routerLink="/events" (click)="closeMobileMenu()" class="px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Events</a>
         @if (authService.isAuthenticated()) {
@@ -131,7 +122,7 @@
               <app-user-avatar [avatarUrl]="authService.currentUser()?.avatarUrl" [displayName]="authService.currentUser()?.displayName ?? ''" />
               <p class="text-xs text-ink-muted/70">{{ authService.currentUser()?.displayName }}</p>
             </div>
-            <a role="menuitem" routerLink="/account" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">My Account</a>
+            <a role="menuitem" routerLink="/settings" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Settings</a>
             <button role="menuitem" (click)="logout()" class="w-full text-left px-2 py-2.5 text-sm font-medium text-ink-muted hover:text-ink">Log out</button>
           } @else {
             <a role="menuitem" routerLink="/login" (click)="closeMobileMenu()" class="px-2 py-2.5 block text-sm font-medium text-ink-muted hover:text-ink">Log in</a>

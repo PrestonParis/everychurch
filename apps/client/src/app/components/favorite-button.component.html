@@ -6,8 +6,8 @@
   [attr.aria-pressed]="favorited"
   class="inline-flex items-center justify-center rounded-full transition-colors disabled:opacity-60"
   [class]="withBacking()
-    ? 'w-8 h-8 bg-white/90 shadow-sm hover:bg-white ' + (favorited ? 'text-red-500' : 'text-slate-400 hover:text-red-500')
-    : 'w-9 h-9 hover:bg-slate-100 ' + (favorited ? 'text-red-500' : 'text-slate-400 hover:text-red-500')"
+    ? 'w-9 h-9 bg-surface/90 shadow-sm hover:bg-surface ' + (favorited ? 'text-oxblood' : 'text-ink-muted hover:text-oxblood')
+    : 'w-9 h-9 hover:bg-parchment ' + (favorited ? 'text-oxblood' : 'text-ink-muted hover:text-oxblood')"
 >
   <svg class="w-5 h-5" viewBox="0 0 24 24" [attr.fill]="favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
     <path stroke-linecap="round" stroke-linejoin="round"

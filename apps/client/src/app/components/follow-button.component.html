@@ -5,8 +5,8 @@
   [attr.aria-pressed]="following"
   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
   [class]="following
-    ? 'bg-white/10 text-white ring-1 ring-white/30 hover:bg-white/20'
-    : 'bg-white text-slate-900 hover:bg-slate-100'"
+    ? 'bg-oxblood/10 text-oxblood ring-1 ring-oxblood/30 hover:bg-oxblood/15'
+    : 'bg-oxblood text-white hover:bg-oxblood-dark'"
 >
   {{ following ? 'Following' : 'Follow' }}
   @if (loaded && followerCount > 0) {

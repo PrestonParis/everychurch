@@ -56,6 +56,9 @@ Thumbs.db
 
 .angular
 .env
+.env.*
+!.env.example
+.vercel
 .vscode
 .agents
 .claude

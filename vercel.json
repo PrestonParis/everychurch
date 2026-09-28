@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npx nx build client",
+  "outputDirectory": "dist/apps/client/browser",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://everychurch-server-274948593192.us-east1.run.app/api/$1" },
+    { "source": "/ws/(.*)", "destination": "https://everychurch-server-274948593192.us-east1.run.app/ws/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

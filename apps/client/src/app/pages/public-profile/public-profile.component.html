@@ -1,0 +1,71 @@
+@if (loading()) {
+  <div class="flex justify-center items-center min-h-screen bg-parchment">
+    <div class="w-8 h-8 rounded-full border-4 border-oxblood border-t-transparent animate-spin"></div>
+  </div>
+} @else if (notFound() || !profile()) {
+  <div class="flex flex-col items-center justify-center min-h-screen bg-parchment text-center px-4">
+    <p class="text-ink-muted text-lg mb-4">This profile isn't available.</p>
+    <a routerLink="/churches" class="text-oxblood font-medium hover:underline">← Back to EveryChurch</a>
+  </div>
+} @else {
+  @let p = profile()!;
+  <div class="min-h-screen bg-parchment">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-10">
+
+      <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6 mb-5">
+        <div class="flex items-start gap-5">
+          <app-user-avatar [avatarUrl]="p.avatarUrl" [displayName]="p.displayName" size="lg" />
+          <div class="min-w-0">
+            <h1 class="text-2xl font-serif font-semibold text-ink leading-tight">{{ p.displayName }}</h1>
+            <p class="text-sm text-ink-muted">&#64;{{ p.username }}</p>
+            <div class="mt-1.5 flex items-center gap-2 flex-wrap text-sm text-ink-muted">
+              @if (p.tradition) {
+                <span class="inline-flex items-center gap-1.5">
+                  <app-tradition-emblem [denomination]="p.tradition" [size]="18" />
+                  {{ p.tradition }}
+                </span>
+              }
+              @if (p.tradition && p.location) {
+                <span>·</span>
+              }
+              @if (p.location) {
+                <span>{{ p.location }}</span>
+              }
+            </div>
+          </div>
+        </div>
+
+        @if (p.bio) {
+          <p class="mt-5 text-ink leading-relaxed">{{ p.bio }}</p>
+        }
+
+        @if (p.isSelf) {
+          <div class="mt-5 pt-5 border-t border-hairline">
+            <a routerLink="/settings" class="text-sm font-medium text-oxblood hover:underline">Edit your profile →</a>
+          </div>
+        }
+      </div>
+
+      @if (p.homeChurchName) {
+        <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6 mb-5">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-2">Church</h2>
+          <a [routerLink]="['/churches', p.homeChurchId]" class="text-sm font-medium text-ink hover:text-oxblood transition-colors">{{ p.homeChurchName }}</a>
+        </div>
+      }
+
+      @if (p.following && p.following.length > 0) {
+        <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
+          <h2 class="text-xs font-semibold uppercase tracking-widest text-ink-muted mb-4">Following</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            @for (c of p.following; track c.id) {
+              <a [routerLink]="['/churches', c.id]" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-parchment hover:bg-gold/10 transition-colors">
+                <app-tradition-emblem [denomination]="c.denomination" [size]="24" />
+                <span class="text-sm text-ink truncate">{{ c.name }}</span>
+              </a>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
