@@ -185,7 +185,7 @@ export class AdminFaithComponent implements OnInit {
     if (this.auth.currentUser()?.role === 'PLATFORM_ADMIN')
       this.service.catalog().subscribe({
         next: (c) => this.draft.set(structuredClone(c)),
-        error: (e) => this.error.set(faithError(e)),
+        error: (e) => this.error.set(faithError(e, 'admin')),
       });
   }
   position(t: FaithTradition, id: string, value: string) {
@@ -214,7 +214,7 @@ export class AdminFaithComponent implements OnInit {
           this.error.set(
             e.status === 409
               ? 'That edition already exists. Choose a new identifier.'
-              : faithError(e),
+              : faithError(e, 'admin'),
           );
           this.busy.set(false);
         },

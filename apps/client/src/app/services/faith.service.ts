@@ -75,10 +75,26 @@ export class FaithService {
     this.questionIndex.set(0);
   }
 }
-export function faithError(error: HttpErrorResponse): string {
+/** 'beliefs' (default) is a specific church's beliefs profile/editor — a 403 there
+ *  really does mean the caller lacks that church's Manage Beliefs permission.
+ *  'quiz' covers the quiz itself and a user's own saved attempts
+ *  (/api/learn/quiz/**, /api/users/me/quiz-attempts/**) — no per-church permission
+ *  exists on that path at all, so showing the beliefs-specific message there was
+ *  actively misleading (reported: a user just trying to view their own saved quiz
+ *  results saw "You need Manage Beliefs permission for this church"). 'admin' covers
+ *  /api/admin/faith/catalogs, gated on the Platform Admin role, not a per-church
+ *  permission. */
+export type FaithErrorContext = 'beliefs' | 'quiz' | 'admin';
+
+const FORBIDDEN_MESSAGES: Record<FaithErrorContext, string> = {
+  beliefs: 'You need Manage Beliefs permission for this church.',
+  quiz: 'We could not complete that request. Please try again.',
+  admin: 'You need Platform Admin access for that.',
+};
+
+export function faithError(error: HttpErrorResponse, context: FaithErrorContext = 'beliefs'): string {
   if (error.status === 401) return 'Please sign in to continue.';
-  if (error.status === 403)
-    return 'You need Manage Beliefs permission for this church.';
+  if (error.status === 403) return FORBIDDEN_MESSAGES[context];
   if (error.status === 409)
     return 'This profile changed while you were editing. Reload before publishing.';
   return error.error?.error && error.status === 400

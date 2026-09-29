@@ -47,7 +47,7 @@ export class QuizComponent implements OnInit {
           const resumeAt = this.service.questionIndex();
           this.index.set(Math.min(Math.max(resumeAt, 0), c.dimensions.length - 1));
         },
-        error: (e) => this.error.set(faithError(e)),
+        error: (e) => this.error.set(faithError(e, 'quiz')),
       });
   }
   get question() {
@@ -95,7 +95,7 @@ export class QuizComponent implements OnInit {
           this.router.navigate(['/learn/denomination-quiz/results']);
         },
         error: (e) => {
-          this.error.set(faithError(e));
+          this.error.set(faithError(e, 'quiz'));
           this.busy.set(false);
         },
       });

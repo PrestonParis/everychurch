@@ -98,7 +98,7 @@ export class LearnComponent implements OnInit {
           if (!this.tradition()) this.error.set('This tradition is not yet in the reference library.');
         }
       },
-      error: (e) => this.error.set(faithError(e)),
+      error: (e) => this.error.set(faithError(e, 'quiz')),
     });
   }
 

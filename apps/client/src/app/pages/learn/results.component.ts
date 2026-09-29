@@ -61,7 +61,7 @@ export class ResultsComponent implements OnInit {
         },
         error: (e) => {
           if (this.auth.currentUser()?.id === userId)
-            this.error.set(faithError(e));
+            this.error.set(faithError(e, 'quiz'));
         },
       });
   }
@@ -94,7 +94,7 @@ export class ResultsComponent implements OnInit {
             this.busy.set(false);
           },
           error: (e) => {
-            this.error.set(faithError(e));
+            this.error.set(faithError(e, 'quiz'));
             this.busy.set(false);
           },
         });
@@ -134,7 +134,7 @@ export class ResultsComponent implements OnInit {
           this.loadSaved();
         },
         error: (e) => {
-          this.error.set(faithError(e));
+          this.error.set(faithError(e, 'quiz'));
           this.busy.set(false);
         },
       });
@@ -157,7 +157,7 @@ export class ResultsComponent implements OnInit {
       .subscribe({
         next: () =>
           this.saved.update((rows) => rows.filter((x) => x.id !== s.id)),
-        error: (e) => this.error.set(faithError(e)),
+        error: (e) => this.error.set(faithError(e, 'quiz')),
       });
   }
   recalculate() {
@@ -176,7 +176,7 @@ export class ResultsComponent implements OnInit {
           this.busy.set(false);
         },
         error: (e) => {
-          this.error.set(faithError(e));
+          this.error.set(faithError(e, 'quiz'));
           this.busy.set(false);
         },
       });
