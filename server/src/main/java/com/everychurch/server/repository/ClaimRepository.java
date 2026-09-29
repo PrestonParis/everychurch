@@ -9,4 +9,5 @@ import java.util.List;
 public interface ClaimRepository extends JpaRepository<Claim, Long> {
     List<Claim> findByStatus(ClaimStatus status);
     boolean existsByChurchIdAndUserIdAndStatus(Long churchId, Long userId, ClaimStatus status);
+    List<Claim> findByUserIdOrderByCreatedAtDesc(Long userId);
 }

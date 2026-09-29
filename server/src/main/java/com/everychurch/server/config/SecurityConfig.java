@@ -90,10 +90,23 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/learn/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/learn/quiz/evaluate").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/churches/**").permitAll()
+                // Same first-match-wins ordering concern as above: "/api/users/*" below is a
+                // single-segment wildcard that would otherwise also match "/api/users/me"
+                // (the authenticated self-profile endpoint) at the security-filter level,
+                // regardless of how specifically UserController itself maps that path — this
+                // rule must stay ahead of the public-profile permitAll rule.
+                .requestMatchers(HttpMethod.GET, "/api/users/me", "/api/users/me/**").authenticated()
+                // PublicProfileController — GET /api/users/{username}, a public profile page
+                // that must work logged-out. Authentication is null here (see class comment
+                // above re: anonymous auth being disabled), not merely unauthenticated.
+                .requestMatchers(HttpMethod.GET, "/api/users/*").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
                 // Client-safe config only (e.g. the Maps Embed key, restricted by HTTP
                 // referrer in Google Cloud Console, not by secrecy) — see PublicConfigController.
                 .requestMatchers(HttpMethod.GET, "/api/config").permitAll()
+                // Church count + bulk-import progress only — no sensitive data. Backs the
+                // cold-start onboarding screen, which must work for a logged-out visitor.
+                .requestMatchers(HttpMethod.GET, "/api/import-status").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/r/**").permitAll()
                 // The WebSocket handshake is a plain HTTP upgrade a browser won't put an

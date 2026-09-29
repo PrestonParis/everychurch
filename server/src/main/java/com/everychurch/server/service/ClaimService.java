@@ -59,6 +59,12 @@ public class ClaimService {
         return claims.stream().map(this::toDto).toList();
     }
 
+    /** The claims a user has submitted themselves, newest first — distinct from the
+     *  admin-only list() above, which returns every claim regardless of requester. */
+    public List<ClaimDto> listMine(User requester) {
+        return claimRepository.findByUserIdOrderByCreatedAtDesc(requester.getId()).stream().map(this::toDto).toList();
+    }
+
     @Transactional
     public ClaimDto approve(Long claimId, User admin) {
         Claim claim = pendingClaimOrThrow(claimId);
