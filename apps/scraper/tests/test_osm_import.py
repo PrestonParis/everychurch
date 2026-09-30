@@ -156,6 +156,13 @@ def test_is_church_false_for_non_congregation_places(name):
         "Camp Hill Presbyterian Church",
         "Home Mission Baptist Church",
         "Homestead Church of God",
+        # Exclusion words overridden by a congregation word — all real names the
+        # nationwide dry run was wrongly dropping.
+        "Faith Lutheran Church and School",
+        "Old School Baptist Church",
+        "Campground Church",
+        "Southampton Old School Baptist Meeting House",
+        "Saint Monica Catholic Church and School",
     ],
 )
 def test_is_church_keeps_real_churches_named_after_places(name):
@@ -335,6 +342,47 @@ def test_dedupe_collapses_a_node_and_building_outline_of_the_same_church():
     candidates = [church("Grace Church"), church("Grace Church", lat=north_m(40))]
 
     assert len(dedupe(candidates, [])) == 1
+
+
+def test_dedupe_drops_an_exact_name_match_to_a_known_church_a_few_km_away():
+    # HIFLD sometimes places a church at its IRS mailing address, not the building.
+    known = [church("MOUNT OLIVET BAPTIST CHURCH", lat=north_m(6000))]
+
+    assert dedupe([church("Mount Olivet Baptist Church")], known) == []
+
+
+def test_dedupe_drops_a_known_church_whose_filed_name_adds_its_town():
+    known = [church("CALVARY CHAPEL RAMONA", lat=north_m(2500), city="RAMONA")]
+
+    assert dedupe([church("Calvary Chapel")], known) == []
+
+
+def test_dedupe_keeps_a_distant_same_name_known_church_in_another_state():
+    known = [church("MOUNT OLIVET BAPTIST CHURCH", lat=north_m(3000), state="MA")]
+
+    assert len(dedupe([church("Mount Olivet Baptist Church")], known)) == 1
+
+
+def test_dedupe_keeps_a_distant_known_church_that_only_resembles_the_name():
+    known = [
+        church("GRACE BAPTIST CHURCH", lat=north_m(3000), city="WARREN"),
+        church("", lat=north_m(3000)),
+    ]
+
+    assert len(dedupe([church("Grace Church")], known)) == 1
+
+
+def test_dedupe_never_drops_a_nameless_candidate_on_the_exact_name_rule():
+    known = [church("", lat=north_m(3000))]
+
+    assert len(dedupe([church("")], known)) == 1
+
+
+def test_dedupe_keeps_same_named_osm_churches_a_few_km_apart():
+    # The exact-name rule is for known churches only; OSM's own points are accurate.
+    candidates = [church("Church of God"), church("Church of God", lat=north_m(5000))]
+
+    assert len(dedupe(candidates, [])) == 2
 
 
 def test_dedupe_keeps_same_named_churches_in_different_towns():

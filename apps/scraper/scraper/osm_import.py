@@ -85,6 +85,12 @@ _EXCLUDE_NAME_PATTERN = re.compile(
     r")\b"
     r"|\bhome$"
 )
+# A name that says it's a congregation overrides the exclusions above — the nationwide
+# dry run showed them otherwise dropping real churches: "Faith Lutheran Church and
+# School", "Old School Baptist Church" (a denomination), dozens of rural "Campground
+# Church"es. "chapel" is deliberately not here: hospital/cemetery/school chapels are
+# exactly what the exclusions exist to catch.
+_CONGREGATION_NAME_PATTERN = re.compile(r"\b(church|cathedral|basilica|parish|tabernacle|meeting ?house)\b")
 # `place_of_worship=*` subtypes that are a roadside marker, not a congregation.
 _EXCLUDE_PLACE_OF_WORSHIP = {"shrine", "wayside_shrine", "cross", "wayside_cross"}
 
@@ -125,6 +131,11 @@ _STRONG_NAME_RADIUS_M = 1000.0
 _STRONG_NAME_RATIO = 0.85
 # City fill (_fill_city): only borrow a nearby known church's city when it's this close.
 _CITY_FILL_RADIUS_M = 1500.0
+# Known-church-only matching (_is_misplaced_known_church): an exact name, or the name
+# plus the known church's own town ("Calvary Chapel" vs "CALVARY CHAPEL RAMONA"), in the
+# same state, this far out. The nationwide dry run found ~4,600 such pairs 1-8km apart —
+# HIFLD placing the church at its IRS mailing address — that the 1km rule let through.
+_MISPLACED_RADIUS_M = 8000.0
 
 _GRID_DEG = 0.02
 _EARTH_RADIUS_M = 6_371_000.0
@@ -214,7 +225,8 @@ def is_church(element: dict) -> bool:
         return False
     if tags.get("place_of_worship") in _EXCLUDE_PLACE_OF_WORSHIP:
         return False
-    if _EXCLUDE_NAME_PATTERN.search(name.lower().rstrip(" .")):
+    lower = name.lower().rstrip(" .")
+    if _EXCLUDE_NAME_PATTERN.search(lower) and not _CONGREGATION_NAME_PATTERN.search(lower):
         return False
     latitude, longitude = _coordinates(element)
     return latitude is not None and longitude is not None
@@ -344,19 +356,42 @@ class SpatialIndex:
         )
 
 
+def _is_misplaced_known_church(church: dict, index: SpatialIndex) -> bool:
+    """Only ever applied against already-known churches, never between OSM rows: OSM
+    positions are the building itself, so two same-named OSM churches 5km apart (two
+    rural "Church of God"s) really are two churches. It's the known side's coordinates
+    that can't be trusted this far out."""
+    name = _normalize_name(church.get("name"))
+    if not name:
+        return False
+    for _, other_name, other in index.nearby(church["latitude"], church["longitude"], _MISPLACED_RADIUS_M):
+        if other.get("state") != church.get("state") or not other_name:
+            continue
+        if other_name == name:
+            return True
+        city = _normalize_name(other.get("city"))
+        if city and other_name == f"{name} {city}":
+            return True
+    return False
+
+
 def dedupe(candidates: List[dict], known: Iterable[dict]) -> List[dict]:
     """Drops candidates matching a known church, and later candidates matching an
     earlier one (OSM sometimes maps the same church as both a node and a building
-    outline). Accepted candidates join the index as they're kept, which is what makes
-    the within-batch half work."""
-    index = SpatialIndex()
+    outline). Accepted candidates join the batch index as they're kept, which is what
+    makes the within-batch half work."""
+    known_index = SpatialIndex()
     for church in known:
-        index.add(church)
+        known_index.add(church)
+    batch_index = SpatialIndex()
     kept = []
     for church in candidates:
-        if not index.has_match(church):
-            kept.append(church)
-            index.add(church)
+        if known_index.has_match(church) or _is_misplaced_known_church(church, known_index):
+            continue
+        if batch_index.has_match(church):
+            continue
+        kept.append(church)
+        batch_index.add(church)
     return kept
 
 
