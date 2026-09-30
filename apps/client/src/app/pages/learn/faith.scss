@@ -6,7 +6,8 @@
  * handful of values here (the muted-gold eyebrow accent, the tan panel
  * background, the error/focus colors, form input borders) have no equivalent
  * among the 8 global tokens, so those get their own --faith-* variables,
- * defined the same way (light in :host, overridden under prefers-color-scheme).
+ * defined the same way (light in :host, overridden under the same dark-mode
+ * conditions as styles.scss: the OS preference unless <html data-theme> overrides it).
  */
 :host {
   display: block;
@@ -22,15 +23,23 @@
   --faith-selected-bg: #f6eaf0;
 }
 
+@mixin faith-dark {
+  --faith-eyebrow: #c9a76b;
+  --faith-tan-bg: #332b22;
+  --faith-error-text: #f87171;
+  --faith-error-bg: #3a1f1f;
+  --faith-input-border: #55493c;
+  --faith-selected-bg: #3a2229;
+}
+
 @media (prefers-color-scheme: dark) {
-  :host {
-    --faith-eyebrow: #c9a76b;
-    --faith-tan-bg: #332b22;
-    --faith-error-text: #f87171;
-    --faith-error-bg: #3a1f1f;
-    --faith-input-border: #55493c;
-    --faith-selected-bg: #3a2229;
+  :host-context(html:not([data-theme='light'])) {
+    @include faith-dark;
   }
+}
+
+:host-context(html[data-theme='dark']) {
+  @include faith-dark;
 }
 
 .faith-shell {

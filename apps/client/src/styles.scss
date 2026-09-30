@@ -6,7 +6,8 @@
 
 /*
  * Theme tokens as CSS custom properties, switched by the OS-level color-scheme
- * preference (@media prefers-color-scheme) rather than a manual toggle — see
+ * preference (@media prefers-color-scheme) unless the user picked Light or Dark
+ * in Settings, which sets <html data-theme="light|dark"> (ThemeService) — see
  * tailwind.config.js, which points every oxblood/gold/parchment/ink/hairline
  * utility class at these variables instead of a fixed hex value. That's what
  * makes every existing `bg-parchment`/`text-ink`/`bg-oxblood`/etc. usage across
@@ -40,26 +41,31 @@
   color-scheme: light dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-parchment: 26 21 18; /* #1A1512 */
-    --color-surface: 42 35 29; /* #2A231D */
-    --color-ink: 237 230 220; /* #EDE6DC */
-    --color-ink-muted: 166 156 142; /* #A69C8E */
-    /* Lighter than the light-mode value on purpose — #7A2331 reads as near-black
-     * text against a near-black page background. Doubles as both the accent
-     * text/icon color and button-fill color (one token, both uses — see the
-     * comment above), so it's chosen as a middle ground that clears WCAG AA
-     * (4.5:1) for white button text and stays legible (~3.7:1) as small accent
-     * text on the dark page background. */
-    --color-oxblood: 194 70 91; /* #C2465B */
-    /* The hover/pressed shade — brightened relative to the base, not darkened,
-     * since darkening an already-midtone color further toward the near-black
-     * background would make the hover state barely perceptible. */
-    --color-oxblood-dark: 210 89 107; /* #D2596B */
-    --color-gold: 209 168 92; /* #D1A85C */
-    --color-hairline: 64 56 48; /* #403830 */
-  }
+/* Only the explicit choice pins native controls to one scheme; with no override,
+ * the `light dark` above lets them follow the OS. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+@mixin dark-theme {
+  --color-parchment: 26 21 18; /* #1A1512 */
+  --color-surface: 42 35 29; /* #2A231D */
+  --color-ink: 237 230 220; /* #EDE6DC */
+  --color-ink-muted: 166 156 142; /* #A69C8E */
+  /* Lighter than the light-mode value on purpose — #7A2331 reads as near-black
+   * text against a near-black page background. Doubles as both the accent
+   * text/icon color and button-fill color (one token, both uses — see the
+   * comment above), so it's chosen as a middle ground that clears WCAG AA
+   * (4.5:1) for white button text and stays legible (~3.7:1) as small accent
+   * text on the dark page background. */
+  --color-oxblood: 194 70 91; /* #C2465B */
+  /* The hover/pressed shade — brightened relative to the base, not darkened,
+   * since darkening an already-midtone color further toward the near-black
+   * background would make the hover state barely perceptible. */
+  --color-oxblood-dark: 210 89 107; /* #D2596B */
+  --color-gold: 209 168 92; /* #D1A85C */
+  --color-hairline: 64 56 48; /* #403830 */
+  color-scheme: dark;
 
   /* A handful of pages still use Tailwind's stock palette directly (text-red-700
    * for form/validation errors) rather than the token system above — that
@@ -69,6 +75,16 @@
   .text-red-700 {
     color: #F87171;
   }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark-theme;
+  }
+}
+
+:root[data-theme='dark'] {
+  @include dark-theme;
 }
 
 @layer base {
