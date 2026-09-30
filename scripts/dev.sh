@@ -11,6 +11,10 @@ fi
 
 docker compose up -d db
 
+# Backgrounded, not part of the exec below — see maybe-bulk-import.sh for why
+# this is always safe to attempt and never blocks/fails the rest of dev.sh.
+bash scripts/maybe-bulk-import.sh &
+
 # exec (not a backgrounded call) so Ctrl+C's SIGINT goes straight to this
 # process and its children (client + server) instead of being caught by an
 # intermediate shell that might not forward it, which would leave the dev

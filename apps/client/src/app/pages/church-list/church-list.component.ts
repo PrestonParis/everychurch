@@ -4,12 +4,22 @@ import { DestroyRef } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, interval, switchMap } from 'rxjs';
 import { Church, DENOMINATIONS } from '../../models/church.model';
 import { ChurchService } from '../../services/church.service';
 import { FavoriteButtonComponent } from '../../components/favorite-button.component';
 import { TraditionEmblemComponent } from '../../components/tradition-emblem.component';
 import { denomStyle, tintColor, titleCase } from '../../utils/church-display.util';
+import { ImportStatusService } from '../../services/import-status.service';
+import { ImportStatus } from '../../models/import-status.model';
+
+/** Below this, the directory looks freshly-empty (a cold-start environment that's
+ *  never had the real dataset bulk-imported — see docs/SCRAPER.md) rather than
+ *  just narrowly filtered. Matches scripts/maybe-bulk-import.sh's own threshold. */
+const COLD_START_THRESHOLD = 50;
+/** Never leave a visitor stuck on the onboarding screen if an import stalls/fails —
+ *  always fall through to the (possibly still-empty) directory after this long. */
+const ONBOARDING_POLL_TIMEOUT_MS = 120_000;
 
 const PAGE_SIZE = 20;
 const SEED_STORAGE_KEY = 'ec_browse_seed';
@@ -22,6 +32,7 @@ const SEED_STORAGE_KEY = 'ec_browse_seed';
 })
 export class ChurchListComponent implements AfterViewInit, OnDestroy {
   private churchService = inject(ChurchService);
+  private importStatusService = inject(ImportStatusService);
   private destroyRef = inject(DestroyRef);
   private route = inject(ActivatedRoute);
 
@@ -53,6 +64,11 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
 
   /** Silently known location (a prior geolocation grant, not a fresh prompt) — see tryPassiveLocation(). Sorts default browsing nearest-first instead of shuffled. */
   knownCoords = signal<{ lat: number; lng: number } | null>(null);
+
+  /** 'checking' only until the first /api/import-status response lands (near-instant
+   *  in practice) — see checkImportStatus(). */
+  onboarding = signal<'checking' | 'active' | 'done'>('checking');
+  onboardingStatus = signal<ImportStatus | null>(null);
 
   query = '';
   denomination = '';
@@ -95,6 +111,7 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
 
     this.runSearch(true);
     this.tryPassiveLocation();
+    this.checkImportStatus();
 
     // See ChurchService.resetBrowse$ — clicking "Browse" in the nav while already
     // on this page is a same-URL routerLink navigation, which the Router ignores,
@@ -149,6 +166,62 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
         );
       })
       .catch(() => {}); // Permissions API doesn't support the 'geolocation' name in this browser — silently fall back
+  }
+
+  /** Cold-start check: if the directory looks freshly-empty (see COLD_START_THRESHOLD)
+   *  or a bulk import is already in progress (scripts/maybe-bulk-import.sh may have
+   *  just kicked one off), show the onboarding screen instead of an empty directory.
+   *  Fails open — any error here just goes straight to 'done', never blocks the page. */
+  private checkImportStatus() {
+    this.importStatusService.get().subscribe({
+      next: (status) => {
+        this.onboardingStatus.set(status);
+        if (status.churchCount < COLD_START_THRESHOLD || status.importRunning) {
+          this.onboarding.set('active');
+          this.startOnboardingPoll();
+        } else {
+          this.onboarding.set('done');
+        }
+      },
+      error: () => this.onboarding.set('done'),
+    });
+  }
+
+  private startOnboardingPoll() {
+    const startedAt = Date.now();
+    interval(3_000)
+      .pipe(
+        switchMap(() => this.importStatusService.get()),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((status) => {
+        this.onboardingStatus.set(status);
+        const enoughData = status.churchCount >= COLD_START_THRESHOLD && !status.importRunning;
+        const timedOut = Date.now() - startedAt > ONBOARDING_POLL_TIMEOUT_MS;
+        if (enoughData || timedOut || status.failed) {
+          this.dismissOnboarding();
+        }
+      });
+  }
+
+  private dismissOnboarding() {
+    if (this.onboarding() === 'done') return;
+    this.onboarding.set('done');
+    this.runSearch(true); // pick up whatever's imported since the initial load
+  }
+
+  /** The onboarding screen's "Use my location" button — the same explicit-prompt
+   *  flow as the search bar's own Near Me button (see nearMe()), just triggered from
+   *  here first. Dismissing immediately (rather than waiting on the geolocation
+   *  callback) is deliberate: the normal page already shows its own "Locating…"
+   *  state once nearMe() is underway. */
+  useLocationAndContinue() {
+    this.nearMe();
+    this.dismissOnboarding();
+  }
+
+  skipOnboarding() {
+    this.dismissOnboarding();
   }
 
   ngAfterViewInit() {

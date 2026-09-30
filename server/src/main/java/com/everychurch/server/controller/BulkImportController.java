@@ -3,6 +3,7 @@ package com.everychurch.server.controller;
 import com.everychurch.server.dto.BulkImportRequest;
 import com.everychurch.server.dto.BulkImportResponse;
 import com.everychurch.server.dto.ChurchDto;
+import com.everychurch.server.service.BulkImportStatusService;
 import com.everychurch.server.service.ChurchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,19 +26,30 @@ import org.springframework.web.bind.annotation.RestController;
 public class BulkImportController {
 
     private final ChurchService churchService;
+    private final BulkImportStatusService bulkImportStatusService;
 
-    public BulkImportController(ChurchService churchService) {
+    public BulkImportController(ChurchService churchService, BulkImportStatusService bulkImportStatusService) {
         this.churchService = churchService;
+        this.bulkImportStatusService = bulkImportStatusService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public BulkImportResponse importBatch(@RequestBody BulkImportRequest request) {
         int created = 0;
-        for (ChurchDto proposed : request.churches()) {
-            churchService.create(proposed);
-            created++;
+        try {
+            for (ChurchDto proposed : request.churches()) {
+                churchService.create(proposed);
+                created++;
+            }
+        } catch (RuntimeException e) {
+            // Surfaced to the client's onboarding poll (see BulkImportStatusService) so a
+            // failed run doesn't just look "running" forever — the poll also has its own
+            // give-up timeout regardless, this just makes the failure visible sooner.
+            bulkImportStatusService.markFailed();
+            throw e;
         }
+        bulkImportStatusService.recordBatch(request.source(), request.totalNew(), request.churches().size(), created);
         return new BulkImportResponse(created);
     }
 }

@@ -1,3 +1,43 @@
+@if (onboarding() === 'active') {
+  <!-- ── COLD-START ONBOARDING ───────────────────────────────────────
+       Shown only when the directory looks freshly-empty or a bulk import is
+       already running (see checkImportStatus()) — asking for location here
+       isn't just filler while we wait, it's exactly what "Near Me" needs
+       once real data lands, and the import runs in the background regardless
+       of what's answered. Polls until there's enough data, a stall timeout
+       is hit, or the visitor answers and moves on themselves. -->
+  <div class="min-h-screen bg-parchment flex items-center justify-center px-4">
+    <div class="max-w-md w-full bg-surface rounded-2xl ring-1 ring-hairline shadow-sm p-8 text-center">
+      <div class="w-10 h-10 mx-auto mb-5 rounded-full border-4 border-oxblood border-t-transparent animate-spin"></div>
+      <h1 class="font-serif font-semibold text-ink text-xl mb-2">Setting things up…</h1>
+      <p class="text-ink-muted text-sm mb-6">
+        We're still loading churches into the directory. While that finishes in the
+        background, tell us where you are so we can show you churches nearby first.
+      </p>
+
+      @if (onboardingStatus()?.importRunning && onboardingStatus()?.totalRows) {
+        <p class="text-xs text-ink-muted mb-6">
+          {{ onboardingStatus()?.processedRows | number }} of {{ onboardingStatus()?.totalRows | number }} churches loaded so far
+        </p>
+      }
+
+      @if (locateError()) {
+        <p class="text-xs text-red-700 mb-4">{{ locateError() }}</p>
+      }
+
+      <div class="flex flex-col gap-2.5">
+        <button type="button" (click)="useLocationAndContinue()" [disabled]="locating()"
+                class="w-full px-4 py-2.5 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark disabled:opacity-60 transition-colors">
+          {{ locating() ? 'Locating…' : 'Use my location' }}
+        </button>
+        <button type="button" (click)="skipOnboarding()"
+                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-ink-muted hover:text-ink transition-colors">
+          Skip for now
+        </button>
+      </div>
+    </div>
+  </div>
+} @else {
 <div class="min-h-screen bg-parchment">
 
   <!-- ── HERO ─────────────────────────────────────────────────────────
@@ -385,3 +425,4 @@
     }
   </div>
 </div>
+}

@@ -81,4 +81,42 @@ class BulkImportFlowTest extends AbstractIntegrationTest {
                 .content("{\"submissions\":[]}"))
             .andExpect(status().isForbidden());
     }
+
+    @Test
+    void importStatus_reachableWithoutAuth() throws Exception {
+        mockMvc.perform(get("/api/import-status"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.churchCount").exists());
+    }
+
+    /** source/totalNew (see BulkImportStatusService) — self-contained: the two
+     *  batches below always sum to exactly totalNew, so this test starts and ends
+     *  at importRunning=false regardless of what else has run in this shared
+     *  Spring context, and never leaves a dangling "running" state for another
+     *  test to trip over. */
+    @Test
+    void bulkImportBatches_withProgressFields_reportMidRunThenComplete() throws Exception {
+        mockMvc.perform(post("/api/scraper/bulk-import")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .contentType("application/json")
+                .content("{\"churches\":[{\"name\":\"Progress Fixture Church One\"}],\"source\":\"kaggle\",\"totalNew\":2}"))
+            .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/import-status"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.importRunning").value(true))
+            .andExpect(jsonPath("$.totalRows").value(2))
+            .andExpect(jsonPath("$.processedRows").value(1));
+
+        mockMvc.perform(post("/api/scraper/bulk-import")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .contentType("application/json")
+                .content("{\"churches\":[{\"name\":\"Progress Fixture Church Two\"}],\"source\":\"kaggle\",\"totalNew\":2}"))
+            .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/import-status"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.importRunning").value(false))
+            .andExpect(jsonPath("$.processedRows").value(2));
+    }
 }

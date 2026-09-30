@@ -6,6 +6,7 @@ import { ChurchListComponent } from './church-list.component';
 import { ChurchService } from '../../services/church.service';
 
 const emptyPage = { content: [], totalElements: 0, totalPages: 0, number: 0, size: 20 };
+const doneImportStatus = { churchCount: 1000, importRunning: false, totalRows: null, processedRows: 0, failed: false };
 
 describe('ChurchListComponent', () => {
   function setup() {
@@ -17,6 +18,9 @@ describe('ChurchListComponent', () => {
     const fixture = TestBed.createComponent(ChurchListComponent);
     fixture.detectChanges();
     http.expectOne((req) => req.url === '/api/churches').flush(emptyPage);
+    // Plenty of data, nothing running — every existing test here is exercising the
+    // normal page, not the cold-start onboarding screen (see its own describe block).
+    http.expectOne((req) => req.url === '/api/import-status').flush(doneImportStatus);
     return { http, fixture, component: fixture.componentInstance };
   }
 
@@ -204,6 +208,7 @@ describe('ChurchListComponent', () => {
       const http = TestBed.inject(HttpTestingController);
       const fixture = TestBed.createComponent(ChurchListComponent);
       fixture.detectChanges();
+      http.expectOne((req) => req.url === '/api/import-status').flush(doneImportStatus);
       return { http, component: fixture.componentInstance };
     }
 
@@ -269,6 +274,7 @@ describe('ChurchListComponent', () => {
       http
         .expectOne((req) => req.url === '/api/churches')
         .flush({ content: [{ id: 1, name: 'Grace Church' }], totalElements: 1, totalPages: 1, number: 0, size: 20 });
+      http.expectOne((req) => req.url === '/api/import-status').flush(doneImportStatus);
       fixture.detectChanges();
       return { el: fixture.nativeElement as HTMLElement };
     }
@@ -283,6 +289,79 @@ describe('ChurchListComponent', () => {
     it('does not appear when there are no results yet', () => {
       const { fixture } = setup(); // default setup() flushes an empty page
       expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Not sure what you’re looking for?');
+    });
+  });
+
+  /** The cold-start onboarding screen: on a freshly-empty DB (or one where a bulk
+   *  import is still running), ask for location instead of silently rendering "no
+   *  results" as if the user's filters were the problem. See GET /api/import-status. */
+  describe('cold-start onboarding', () => {
+    function setupOnboarding(status: {
+      churchCount: number;
+      importRunning: boolean;
+      totalRows?: number | null;
+      processedRows?: number;
+      failed?: boolean;
+    }) {
+      TestBed.configureTestingModule({
+        imports: [ChurchListComponent],
+        providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      });
+      const http = TestBed.inject(HttpTestingController);
+      const fixture = TestBed.createComponent(ChurchListComponent);
+      fixture.detectChanges();
+      http.expectOne((req) => req.url === '/api/churches').flush(emptyPage);
+      http.expectOne((req) => req.url === '/api/import-status').flush({
+        churchCount: status.churchCount,
+        importRunning: status.importRunning,
+        totalRows: status.totalRows ?? null,
+        processedRows: status.processedRows ?? 0,
+        failed: status.failed ?? false,
+      });
+      return { http, fixture, component: fixture.componentInstance };
+    }
+
+    it('shows the onboarding screen when the directory looks freshly-empty', () => {
+      const { component } = setupOnboarding({ churchCount: 10, importRunning: false });
+      expect(component.onboarding()).toBe('active');
+    });
+
+    it('shows onboarding even with plenty of data if an import is currently running', () => {
+      const { component } = setupOnboarding({ churchCount: 5000, importRunning: true });
+      expect(component.onboarding()).toBe('active');
+    });
+
+    it('goes straight to done when there is already plenty of data and nothing running', () => {
+      const { component } = setupOnboarding({ churchCount: 5000, importRunning: false });
+      expect(component.onboarding()).toBe('done');
+    });
+
+    it('skipOnboarding dismisses without touching geolocation', () => {
+      const { http, component } = setupOnboarding({ churchCount: 10, importRunning: false });
+
+      component.skipOnboarding();
+
+      expect(component.onboarding()).toBe('done');
+      http.expectOne((r) => r.url === '/api/churches').flush(emptyPage); // dismissOnboarding() re-searches
+      http.verify();
+    });
+
+    it('useLocationAndContinue triggers the existing Near Me flow and dismisses immediately', () => {
+      const { http, component } = setupOnboarding({ churchCount: 10, importRunning: false });
+      (globalThis as any).navigator.geolocation = {
+        getCurrentPosition: (success: PositionCallback) =>
+          success({ coords: { latitude: 30.2672, longitude: -97.7431 } } as GeolocationPosition),
+      };
+
+      component.useLocationAndContinue();
+
+      expect(component.onboarding()).toBe('done');
+      expect(component.nearMeActive()).toBe(true);
+      // Two /api/churches requests: nearMe()'s own search, plus dismissOnboarding()'s re-search.
+      const reqs = http.match((r) => r.url === '/api/churches');
+      expect(reqs.length).toBe(2);
+      reqs.forEach((r) => r.flush(emptyPage));
+      http.verify();
     });
   });
 });

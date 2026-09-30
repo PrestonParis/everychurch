@@ -328,6 +328,22 @@ def test_submit_batch_sends_the_bulk_import_header_and_body():
 
 
 @responses.activate
+def test_submit_batch_includes_source_and_total_new_when_given():
+    responses.add(
+        responses.POST,
+        "https://api.example.com" + BULK_IMPORT_ENDPOINT,
+        json={"created": 1},
+        status=201,
+    )
+
+    submit_batch(make_config(), requests_session(), [{"name": "A"}], source="kaggle", total_new=42)
+
+    import json
+    body = json.loads(responses.calls[0].request.body)
+    assert body == {"churches": [{"name": "A"}], "source": "kaggle", "totalNew": 42}
+
+
+@responses.activate
 def test_submit_batch_falls_back_to_batch_length_when_response_omits_created():
     responses.add(responses.POST, "https://api.example.com" + BULK_IMPORT_ENDPOINT, json={}, status=201)
 

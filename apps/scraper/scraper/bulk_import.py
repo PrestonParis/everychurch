@@ -229,12 +229,31 @@ def dedupe_within_batch(churches: Iterable[dict]) -> List[dict]:
     return deduped
 
 
-def submit_batch(config: BulkImportConfig, session: requests.Session, batch: List[dict]) -> int:
+def submit_batch(
+    config: BulkImportConfig,
+    session: requests.Session,
+    batch: List[dict],
+    source: Optional[str] = None,
+    total_new: Optional[int] = None,
+) -> int:
+    # source/total_new are optional progress-reporting fields (see
+    # BulkImportStatusService on the server) — omitted entirely rather than sent as
+    # null when not given, so a caller not participating in progress reporting (or
+    # an older server) sees the exact same body this endpoint has always accepted.
+    body: dict = {"churches": batch}
+    if source is not None:
+        body["source"] = source
+    if total_new is not None:
+        body["totalNew"] = total_new
+
     response = session.post(
         f"{config.server_base_url.rstrip('/')}{BULK_IMPORT_ENDPOINT}",
-        json={"churches": batch},
+        json=body,
         headers={BULK_IMPORT_HEADER: config.bulk_import_api_key},
-        timeout=60,
+        # 120s, not 60 — same reasoning as existing_churches.py's fetch timeout:
+        # confirmed live that a batch of 100 inserts occasionally took longer than
+        # 60s against a growing production table.
+        timeout=120,
     )
     response.raise_for_status()
     return response.json().get("created", len(batch))
@@ -268,7 +287,7 @@ def run(
     created = 0
     for start in range(0, len(new_churches), batch_size):
         batch = new_churches[start:start + batch_size]
-        created += submit_batch(config, session, batch)
+        created += submit_batch(config, session, batch, source="kaggle", total_new=len(new_churches))
         logger.info("bulk import progress: %d/%d ingested", start + len(batch), len(new_churches))
         if start + batch_size < len(new_churches):
             time.sleep(batch_delay_s)  # real Geocoding API quota is burned per row server-side

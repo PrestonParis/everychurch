@@ -13,11 +13,40 @@ the live scraper's Lambda deployment doesn't pick up bulk_import's heavier
 kagglehub/pandas dependencies just to get this one function.
 """
 
+import logging
+import time
 from typing import List
 
 import requests
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_PAGE_SIZE = 200
+_MAX_ATTEMPTS = 5
+_BACKOFF_BASE_S = 2.0
+
+
+def _get_with_retry(session: requests.Session, url: str, params: dict, timeout: int) -> requests.Response:
+    """Confirmed live during the production bulk import: paging through tens of
+    thousands of rows on one reused `requests.Session` connection occasionally
+    hits a `ConnectionResetError` partway through (a load balancer resetting a
+    long-lived reused connection, not a real failure of any single request) —
+    and without this, that reset killed the *entire* run, forcing a full restart
+    that re-fetches every already-seen page from scratch. Retrying just the one
+    failed request is both cheaper and far more likely to actually finish."""
+    last_error: Exception | None = None
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            response = session.get(url, params=params, timeout=timeout)
+            response.raise_for_status()
+            return response
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            last_error = e
+            if attempt < _MAX_ATTEMPTS:
+                delay = _BACKOFF_BASE_S * (2 ** (attempt - 1))
+                logger.warning("request to %s failed (attempt %d/%d): %s — retrying in %.0fs", url, attempt, _MAX_ATTEMPTS, e, delay)
+                time.sleep(delay)
+    raise last_error  # type: ignore[misc]
 
 
 def fetch_all_existing_churches(base_url: str, session: requests.Session, page_size: int = DEFAULT_PAGE_SIZE) -> List[dict]:
@@ -30,8 +59,14 @@ def fetch_all_existing_churches(base_url: str, session: requests.Session, page_s
     page = 0
 
     while True:
-        response = session.get(f"{base_url}/api/churches", params={"page": page, "size": page_size}, timeout=30)
-        response.raise_for_status()
+        # 120s, not 30 — GET /api/churches with no query defaults to a random
+        # shuffle-sort (md5(seed || id), for browsing variety) rather than an
+        # indexed order, which gets meaningfully slower as the table grows toward
+        # tens of thousands of rows. Confirmed live: 30s was too tight once this
+        # crossed ~30k existing churches during the initial bulk import.
+        response = _get_with_retry(
+            session, f"{base_url}/api/churches", params={"page": page, "size": page_size}, timeout=120
+        )
         body = response.json()
 
         if isinstance(body, list):
