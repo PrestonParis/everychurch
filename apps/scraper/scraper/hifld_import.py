@@ -102,6 +102,13 @@ _EXCLUDE_NAME_KEYWORDS = (
 _INCLUDE_NAME_KEYWORDS = (
     "church", "chapel", "cathedral", "parish", "ministries", "ministry",
     "congregation", "fellowship", "tabernacle", "basilica",
+    # Real congregations confirmed missed by the list above in a 2026-09-30 dry run
+    # against the live service (76k rows failed only the include check) — e.g.
+    # "EMMANUEL ASSEMBLY OF GOD", "IGLESIA BETHESDA INC", "MINISTERIO APOSTOLICO ...",
+    # "PISCATAQUIS RIVER CHRISTIAN CENTER", "LITTLE HOUSE OF PRAYER INC". Spanish and
+    # Portuguese congregations essentially never say "church" in their filed name.
+    "assembly of god", "iglesia", "ministerio", "igreja", "christian center",
+    "house of prayer",
 )
 
 # Best-effort denomination guess from the organization's own filed name — there is no
@@ -175,6 +182,14 @@ def is_church(row: dict) -> bool:
     if any(keyword in name for keyword in _EXCLUDE_NAME_KEYWORDS):
         return False
     return any(keyword in name for keyword in _INCLUDE_NAME_KEYWORDS)
+
+
+def has_coordinates(row: dict) -> bool:
+    """Rows without coordinates are skipped outright, not sent coordinate-less: the
+    server falls back to the paid Google Geocoding API for any church created without
+    lat/lng (ChurchService.applyDto), and at this dataset's volume that fallback is real
+    money. HIFLD already geocodes nearly every row, so this loses very little."""
+    return row.get("X") is not None and row.get("Y") is not None
 
 
 def to_church_dto_shape(row: dict) -> dict:
@@ -295,8 +310,9 @@ def run(
 
     raw_records = fetch_all_records(session)
     church_records = [r for r in raw_records if is_church(r)]
+    geocoded_records = [r for r in church_records if has_coordinates(r)]
 
-    mapped = [to_church_dto_shape(r) for r in church_records]
+    mapped = [to_church_dto_shape(r) for r in geocoded_records]
     deduped = dedupe_within_batch(mapped)
 
     existing = fetch_all_existing_churches(config.server_base_url, session)
@@ -314,6 +330,7 @@ def run(
     result = {
         "totalRecords": len(raw_records),
         "churchRecords": len(church_records),
+        "withCoordinates": len(geocoded_records),
         "afterInternalDedup": len(deduped),
         "new": len(new_churches),
         "created": created,

@@ -134,3 +134,15 @@
 </nav>
 
 <router-outlet />
+
+<!-- Data-source credit. The OpenStreetMap line is a license requirement, not a
+     courtesy: churches imported by scraper/osm_import.py are ODbL data, which must be
+     attributed wherever it's shown. Churches don't record their source, so this is
+     site-wide rather than per-church. See docs/SCRAPER.md "OpenStreetMap import". -->
+<footer class="border-t border-hairline bg-surface">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 text-xs text-ink-muted">
+    Church listings include data from
+    <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" class="underline hover:text-ink">© OpenStreetMap contributors</a>
+    and HIFLD public records.
+  </div>
+</footer>

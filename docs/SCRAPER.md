@@ -112,6 +112,22 @@ POST /api/admin/scraper-runs/trigger   {"region": "RI"} or {} to auto-pick -> {"
 
 **Reuses, doesn't duplicate:** `dedupe_within_batch` and `submit_batch` are imported directly from `bulk_import.py` rather than copied — both are generic over the `{name, zipCode}`-keyed `ChurchDto` shape, and this module already imports `bulk_import` for them (see that module's docstring for why `pipeline.py`, unlike this one, deliberately avoids that import — this is a manual one-time script too, so the same Lambda-payload-weight concern doesn't apply).
 
+## OpenStreetMap import (2026-09-30)
+
+*Implemented* — `scraper/osm_import.py`, same trusted `POST /api/scraper/bulk-import` endpoint and `BULK_IMPORT_API_KEY` as the other two imports. Run manually, **after** `hifld_import`: `python -m scraper.osm_import`.
+
+**Why:** HIFLD only has congregations that filed with the IRS (see "Known ceiling" above). OSM is mapped by people on the ground, not IRS-gated, so it reaches small and independent churches HIFLD never will. Free, no API key: one Overpass query per state (`amenity=place_of_worship` + `religion=christian`, `out center tags`), 51 queries total with a pause between each, retried on the public instance's routine 429/504s.
+
+**What a Rhode Island probe showed (555 elements):** 96% named, 61% `denomination`-tagged, but only 37% carry `addr:city`/`addr:postcode`. That drives the two design decisions below.
+
+**Spatial dedup, not name+ZIP.** With most rows ZIP-less, name+ZIP would collapse every ZIP-less "First Baptist Church" in the country into one. Every OSM row and every HIFLD/Kaggle row has coordinates, so `_is_same_church` matches on name similarity scaled by distance: anything within 30m is the same place; a close name match (≥0.85, or one name containing the other) within 1km; a looser one (≥0.6) only within 150m. The 1km allowance exists because HIFLD points are geocoded from the IRS filing address, which is sometimes a pastor's house or PO box rather than the building. **Order matters:** run HIFLD first, or OSM's sparser rows get imported for churches HIFLD would have supplied with a full address.
+
+**City fill.** The directory's city search is a text match on `city`, so a blank city makes a church invisible to it (Near Me still works — that's coordinate-based). `_fill_city` borrows the city of the nearest known church in the same state within 1.5km. ZIP is deliberately not borrowed — ZIP boundaries are much finer, so a neighbor's is wrong far more often.
+
+**Filtering:** unnamed elements and roadside shrines/crosses are dropped, plus religious houses and institutional chapels by name (monastery, convent, school, hospital, cemetery, a name ending in "Home", …). Unlike HIFLD's list, "college"/"university"/"camp" are not excluded — in OSM they're place names ("College Park Baptist Church").
+
+**Licensing (ODbL):** the client must show "© OpenStreetMap contributors" wherever OSM-sourced churches appear, and the church table is covered by ODbL share-alike.
+
 ## Local development
 
 ```sh

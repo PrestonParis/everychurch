@@ -14,7 +14,6 @@ import logging
 import time
 from typing import Iterable, List, Optional
 
-import kagglehub
 import pandas as pd
 import requests
 
@@ -156,6 +155,11 @@ def _clean(value) -> Optional[str]:
 
 def download_dataset() -> str:
     """Downloads (or reuses kagglehub's local cache for) the dataset; returns the CSV path."""
+    # Imported here, not at module level: hifld_import and osm_import reuse this
+    # module's batching helpers and have no use for Kaggle, so they shouldn't need
+    # kagglehub installed just to load.
+    import kagglehub
+
     dataset_dir = kagglehub.dataset_download(DATASET_HANDLE)
     return f"{dataset_dir}/{DATASET_FILENAME}"
 

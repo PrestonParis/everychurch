@@ -12,6 +12,7 @@ from scraper.hifld_import import (
     _denomination_from_name,
     _zip_code,
     fetch_all_records,
+    has_coordinates,
     is_church,
     run,
     to_church_dto_shape,
@@ -294,14 +295,47 @@ def test_fetch_all_records_raises_on_an_error_body_despite_http_200():
         fetch_all_records(requests_session())
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "EMMANUEL ASSEMBLY OF GOD",
+        "IGLESIA BETHESDA INC",
+        "MINISTERIO APOSTOLICO JESUCRISTO ES EL SENOR INC",
+        "IGREJA BATISTA BRASILEIRA",
+        "PISCATAQUIS RIVER CHRISTIAN CENTER",
+        "LITTLE HOUSE OF PRAYER INC",
+    ],
+)
+def test_is_church_true_for_congregations_that_never_say_church(name):
+    # Real names from the live service that the original include list missed.
+    assert is_church({"NAME": name, "AFFILIATIO": "3"}) is True
+
+
+# --- has_coordinates -----------------------------------------------------------------
+
+def test_has_coordinates_true_when_both_present():
+    assert has_coordinates({"X": -71.04, "Y": 42.35}) is True
+
+
+def test_has_coordinates_false_when_either_is_missing():
+    assert has_coordinates({"X": -71.04}) is False
+    assert has_coordinates({"Y": 42.35}) is False
+    assert has_coordinates({}) is False
+
+
+def test_has_coordinates_true_for_a_zero_coordinate():
+    # 0.0 is a real (if unlikely) value, not a missing one.
+    assert has_coordinates({"X": 0.0, "Y": 0.0}) is True
+
+
 # --- run -------------------------------------------------------------------------------
 
 def test_run_orchestrates_fetch_filter_dedupe_and_ingest():
     config = make_config()
     raw = [
-        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9"},
-        {"NAME": "Maine Council of Churches", "STATE": "ME", "ZIP": "04102", "AFFILIATIO": "3"},
-        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9"},
+        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Maine Council of Churches", "STATE": "ME", "ZIP": "04102", "AFFILIATIO": "3", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
     ]
 
     with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
@@ -321,17 +355,36 @@ def test_run_orchestrates_fetch_filter_dedupe_and_ingest():
     assert result == {
         "totalRecords": 3,
         "churchRecords": 2,
+        "withCoordinates": 2,
         "afterInternalDedup": 2,
         "new": 1,
         "created": 1,
     }
 
 
+def test_run_skips_churches_without_coordinates_so_the_server_never_geocodes():
+    raw = [
+        {"NAME": "First Baptist Church", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "ZIP": "75001", "AFFILIATIO": "9"},
+    ]
+
+    with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
+        "scraper.hifld_import.fetch_all_existing_churches", return_value=[]
+    ), patch("scraper.hifld_import.submit_batch", return_value=1) as submit:
+        result = run(config=make_config(), session=MagicMock(), batch_size=10)
+
+    batch_arg = submit.call_args[0][2]
+    assert [c["name"] for c in batch_arg] == ["First Baptist Church"]
+    assert all(c["latitude"] is not None and c["longitude"] is not None for c in batch_arg)
+    assert result["churchRecords"] == 2
+    assert result["withCoordinates"] == 1
+
+
 def test_run_sleeps_between_multiple_batches():
     config = make_config()
     raw = [
-        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9"},
-        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9"},
+        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
     ]
 
     with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
@@ -354,6 +407,7 @@ def test_run_defaults_config_and_session_when_not_given():
     assert result == {
         "totalRecords": 0,
         "churchRecords": 0,
+        "withCoordinates": 0,
         "afterInternalDedup": 0,
         "new": 0,
         "created": 0,
