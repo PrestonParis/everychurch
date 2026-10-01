@@ -147,7 +147,7 @@ export class ResultsComponent implements OnInit {
     this.notice.set(
       'Viewing a saved snapshot from ' +
         s.createdAt.slice(0, 10) +
-        '. Recalculate to include current church information.',
+        '. Refresh results to include churches that have published since.',
     );
   }
   remove(s: FaithSaved) {
@@ -171,7 +171,7 @@ export class ResultsComponent implements OnInit {
         next: (r) => {
           this.service.result.set(r);
           this.notice.set(
-            'Recalculated with current church profiles and your original quiz version.',
+            'Results refreshed with the latest church information.',
           );
           this.busy.set(false);
         },
@@ -185,6 +185,15 @@ export class ResultsComponent implements OnInit {
     return matches.filter(
       (m) => (m.status === 'essential_conflict') === conflicts,
     );
+  }
+  /** Traditions sharing none of the user's answered topics get a one-line mention
+   *  instead of a full card of "Unknown"s. 'explore' (no weighted answers at all)
+   *  stays a card: there, every tradition is equally uncompared, by design. */
+  comparable(matches: FaithMatch[]) {
+    return matches.filter((m) => m.status === 'explore' || m.comparedTopics > 0);
+  }
+  notComparable(matches: FaithMatch[]) {
+    return matches.filter((m) => m.status !== 'explore' && m.comparedTopics === 0);
   }
   clear() {
     this.service.clear();
