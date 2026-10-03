@@ -143,7 +143,7 @@ python -m scraper.osm_fill --cache osm_elements.json             # reuses the do
 
 **Never overwrites.** `ChurchService.fillBlanks` only sets blank fields, adds service times only when the church has none, never touches name/state/coordinates, and skips claimed churches. Safe to re-run.
 
-**Expected yield (Rhode Island probe, 530 OSM churches):** 155 with a website, 144 a phone, 297 a denomination, but only 26 with `service_times` (23 parseable). This fills contact info well; service times need the website crawler (next step).
+**Expected yield (Rhode Island probe, 530 OSM churches):** 155 with a website, 144 a phone, 297 a denomination, but only 26 with `service_times` (23 parseable). This fills contact info well; service times come from the website crawl below.
 
 ## Wikidata backfill (2026-10-01)
 
@@ -161,6 +161,39 @@ python -m scraper.wikidata_fill
 **Licensing — photos are not CC0.** Wikidata's *data* is CC0, but photos live on Wikimedia Commons, and ~70% need attribution (mostly CC BY-SA). The client has nowhere to show a photo credit, so only images Commons marks `AttributionRequired=false` (CC0 / public domain) are used, as 320px thumbnails (the profile shows an 80px avatar). Adding a credit line to the client would unlock the rest.
 
 **No 8km "misplaced" fallback:** that rule needs the item's state, and Wikidata's comes from a P131 location chain that's too slow to query nationwide — so Wikidata matching is the within-1km name-match tiers only.
+
+## Website crawl backfill (2026-10-02)
+
+*Implemented* — `scraper/website_fill.py`, same `/fill` endpoint and blanks-only/never-claimed guarantees as the other backfills. Fills **service times, pastor and description** by reading each church's own website. Free (no API key, no per-call cost), unlike Places enrichment. Run it **after** `osm_fill` and `wikidata_fill`, since it only visits churches that already have a website:
+
+```sh
+python -m scraper.website_fill --dry-run --cache website_crawl.jsonl --states RI   # crawl + report + 25 sample fills
+python -m scraper.website_fill --cache website_crawl.jsonl                         # reuses the crawl, sends the fills
+```
+
+`--cache` appends one JSON line per church as it goes. An interrupted run resumes where it stopped, and the real run reuses a dry run's crawl. A church whose website has changed since is crawled again. `--workers` (default 16) is how many sites are crawled at once; `--limit` caps a trial run.
+
+**What it reads:** the homepage plus up to 4 same-site pages picked by link text/URL: two about services ("Mass Times", "Worship", "Plan a Visit") and two about the pastor ("Our Pastor", "Staff", "About"). A dedicated service-times page wins over the homepage; schedules from different pages are never merged.
+
+**Service times — precision over recall.** A time counts only when its line names a service ("Sunday Worship 9 & 10:30 AM", "Saturday Vigil 5pm") or is a bare "Sunday 10:00 am" under a heading that does. It needs an am/pm (or 24h); a bare "10:30" is too ambiguous. Rejected:
+- office hours, Sunday School/classes, confession/adoration/rosary, prayer meetings and meals;
+- dated events ("Oct 4"), ranges ("9am-2pm"), holiday/summer/Lent schedules, monthly ("1st Sunday") and relative ("after the 10am service") times, TV/cable broadcasts.
+
+A "Sunday" heading carries down to the bare times under it. Two-column layouts (labels in one block, times in the next) are rejected outright if any label is excluded. Some sites list several churches (a merged parish), either under subheadings ("St. Mary of the Assumption") or inline ("10:30am @ St. Mary"). There, only the times placed at *this* church count. A schedule with no Saturday/Sunday service is dropped as probably partial. Type is Mass for Catholic churches or "Mass" wording, Bible Study when the line says so, otherwise Worship. A language named next to a time ("9am English, 11am Spanish") is kept.
+
+**Pastor:** "Pastor Jane Doe", "Rev. John Smith, Senior Pastor", or a staff card (name and "Senior Pastor" on adjacent lines; the page's layout decides above vs. below). Associate/youth/music/etc. pastors never count. Two different lead-pastor names means none, not a guess ("Senior/Lead Pastor" breaks a tie).
+
+**Description:** the site's own JSON-LD / meta / OpenGraph description, if it reads like one: not a builder template ("Just another WordPress site"), not truncated "...", not a phone/email/address line, not a "A | B | C" title.
+
+**Guards against filling the wrong church:**
+- the homepage must mention the church's name, so lapsed domains now showing a parking page are skipped;
+- a website shared by several churches (diocese, denomination or national site) is skipped for all of them;
+- a description found on more than one church's site is dropped as boilerplate;
+- social/profile "websites" (Facebook, Instagram, Linktree, jw.org, ...) are never crawled.
+
+**Polite crawling:** honest User-Agent (`everychurch-website-fill/1.0 (+https://everychurch.co)`), robots.txt honoured. A robots.txt that errors is treated as disallow-all. A Crawl-delay is honoured, and above 10s only the homepage is read. One request at a time per site, with a 1s pause. HTML only, pages capped at 2MB.
+
+**Yield (150 random OSM church websites nationwide, live, 2026-10-02):** 120 reachable (14 down, 10 blocked by robots.txt or a 403, 6 failed the name check). Of the 150: service times 49%, pastor 28%, description 35%. 150 sites took 75s at 16 workers. The ~26k OSM church websites nationwide would take about 3.5 hours (more once Wikidata websites are in). Several rounds of hand-checking against the live pages (RI, MA, TX, OH, GA, NY, PA, IL, CA, FL, NC, WA, MI, VA, MN) drove the rules above. Known gaps: JavaScript-only sites render no text, schedules split into image/PDF bulletins are skipped, and a Saturday-morning daily Mass satisfies the "has a weekend service" check.
 
 ## Local development
 

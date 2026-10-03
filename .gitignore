@@ -67,6 +67,7 @@ Thumbs.db
 .vscode/
 CLAUDE.md
 
-# Scraper run artifacts (local logs and the Overpass download cache)
+# Scraper run artifacts (local logs, the Overpass download cache, the website crawl cache)
 apps/scraper/*.log
 apps/scraper/osm_elements.json
+apps/scraper/website_crawl.jsonl
