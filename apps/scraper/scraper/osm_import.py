@@ -104,6 +104,7 @@ _DENOMINATION_KEYWORDS = (
     ("mormon", "Latter-day Saint (LDS)"),
     ("adventist", "Seventh-day Adventist"),
     ("methodist", "Methodist"),
+    ("methodism", "Methodist"),  # Wikidata's label form (wikidata_fill.py reuses this table)
     ("lutheran", "Lutheran"),
     ("baptist", "Baptist"),
     ("catholic", "Catholic"),

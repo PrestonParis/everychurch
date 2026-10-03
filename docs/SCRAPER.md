@@ -128,13 +128,47 @@ POST /api/admin/scraper-runs/trigger   {"region": "RI"} or {} to auto-pick -> {"
 
 **Licensing (ODbL):** the client must show "© OpenStreetMap contributors" wherever OSM-sourced churches appear, and the church table is covered by ODbL share-alike.
 
+## OpenStreetMap backfill (2026-10-01)
+
+*Implemented* — `scraper/osm_fill.py` → `POST /api/scraper/bulk-import/fill` (same `BULK_IMPORT_API_KEY`). Run manually after the imports:
+
+```sh
+python -m scraper.osm_fill --dry-run --cache osm_elements.json   # match + report + 25 sample fills, sends nothing
+python -m scraper.osm_fill --cache osm_elements.json             # reuses the download, sends the fills
+```
+
+**Why:** the import dropped every OSM church that matched an existing HIFLD/Kaggle row — and with it the website/phone its mapper had tagged. HIFLD has no phone or website column, so those rows are blank. This matches each OSM church to its existing row and fills website, phone, email, Facebook/Instagram/YouTube, denomination, and service times (parsed from the `service_times` tag; anything beyond simple `Su 08:00,10:30; Sa 17:00` rules is skipped whole, never half-parsed).
+
+**Stricter matching than the import's dedup** — a wrong fill puts another church's website on this one, so proximity alone (the import's 30m rule) never counts; there must be a name match (see the module docstring for the tiers). Conflicting values from two OSM elements on one church are dropped.
+
+**Never overwrites.** `ChurchService.fillBlanks` only sets blank fields, adds service times only when the church has none, never touches name/state/coordinates, and skips claimed churches. Safe to re-run.
+
+**Expected yield (Rhode Island probe, 530 OSM churches):** 155 with a website, 144 a phone, 297 a denomination, but only 26 with `service_times` (23 parseable). This fills contact info well; service times need the website crawler (next step).
+
+## Wikidata backfill (2026-10-01)
+
+*Implemented* — `scraper/wikidata_fill.py`, same `/fill` endpoint, matching (`osm_fill.match_known`) and blanks-only/never-claimed guarantees as the OSM backfill. Run after `osm_fill` (OSM's values win wherever both have one, simply by getting there first):
+
+```sh
+python -m scraper.wikidata_fill --dry-run
+python -m scraper.wikidata_fill
+```
+
+**What it adds:** official website, denomination, Facebook/Instagram/YouTube, phone, email, and a photo (`imageUrl`) — for *notable* churches only (~11.9k US church buildings with coordinates). A 1,500-item live sample had something usable on 636: 313 websites, 271 denominations, 230 photos. A property with two values (two websites, two phones) is skipped rather than guessed.
+
+**Querying:** the Wikidata Query Service kills queries at 60s. "Every US church" only finishes in one join order (church-building subclasses → instances → US), forced with `hint:optimizer "None"` (~10s, ids + coordinates only); details follow in 500-id batches. No API key, no rate-limit account.
+
+**Licensing — photos are not CC0.** Wikidata's *data* is CC0, but photos live on Wikimedia Commons, and ~70% need attribution (mostly CC BY-SA). The client has nowhere to show a photo credit, so only images Commons marks `AttributionRequired=false` (CC0 / public domain) are used, as 320px thumbnails (the profile shows an 80px avatar). Adding a credit line to the client would unlock the rest.
+
+**No 8km "misplaced" fallback:** that rule needs the item's state, and Wikidata's comes from a P131 location chain that's too slow to query nationwide — so Wikidata matching is the within-1km name-match tiers only.
+
 ## Local development
 
 ```sh
 npx nx test scraper        # pytest — scraper/ is fully covered (--cov-fail-under=100)
 ```
 
-Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`; for bulk import only: `BULK_IMPORT_API_KEY` (plus optional `KAGGLE_USERNAME`/`KAGGLE_KEY`).
+Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`; for bulk import only: `BULK_IMPORT_API_KEY` (plus optional `KAGGLE_USERNAME`/`KAGGLE_KEY`). Against production, `SERVER_BASE_URL` is the Cloud Run API (`https://everychurch-server-274948593192.us-east1.run.app`), not the everychurch.co website — see [COMMANDS.md](COMMANDS.md) "Production URLs".
 
 The Lambda entry point is `scraper.index.lambda_handler`, which delegates to `pipeline.run()` (discover → dedup → enrich → submit). Locally:
 

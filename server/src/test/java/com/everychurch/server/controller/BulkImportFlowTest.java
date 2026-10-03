@@ -1,6 +1,8 @@
 package com.everychurch.server.controller;
 
 import com.everychurch.server.AbstractIntegrationTest;
+import com.everychurch.server.model.Church;
+import com.everychurch.server.repository.ChurchRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -27,6 +31,7 @@ class BulkImportFlowTest extends AbstractIntegrationTest {
 
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
+    @Autowired ChurchRepository churchRepository;
 
     @Test
     void validKeyCreatesUnclaimedChurchesDirectly() throws Exception {
@@ -118,5 +123,69 @@ class BulkImportFlowTest extends AbstractIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.importRunning").value(false))
             .andExpect(jsonPath("$.processedRows").value(2));
+    }
+
+    // --- /fill (osm_fill.py) ---------------------------------------------------------
+
+    private Long saveChurch(String name, String website, boolean claimed) {
+        Church c = new Church();
+        c.setName(name);
+        c.setWebsite(website);
+        c.setClaimed(claimed);
+        return churchRepository.save(c).getId();
+    }
+
+    private void fill(String body, int expectedUpdated) throws Exception {
+        mockMvc.perform(post("/api/scraper/bulk-import/fill")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .contentType("application/json")
+                .content(body))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.updated").value(expectedUpdated));
+    }
+
+    @Test
+    void fill_setsOnlyBlankFields_andAddsServiceTimesWhenNoneExist() throws Exception {
+        Long id = saveChurch("Fill Fixture Church", "https://existing.example.org", false);
+
+        fill("{\"source\":\"osm\",\"churches\":[{\"id\":" + id + ",\"name\":\"Renamed\","
+            + "\"website\":\"https://osm.example.org\",\"phone\":\"401-555-0100\",\"denomination\":\"Baptist\","
+            + "\"serviceTimes\":[{\"dayOfWeek\":\"Sunday\",\"time\":\"10:30\",\"type\":\"Worship\"}]}]}", 1);
+
+        mockMvc.perform(get("/api/churches/" + id))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Fill Fixture Church"))
+            .andExpect(jsonPath("$.website").value("https://existing.example.org"))
+            .andExpect(jsonPath("$.phone").value("401-555-0100"))
+            .andExpect(jsonPath("$.denomination").value("Baptist"))
+            .andExpect(jsonPath("$.serviceSummary").value("Sundays 10:30 AM"))
+            .andExpect(jsonPath("$.serviceTimes.length()").value(1));
+
+        // nothing blank left that this dto could fill, and the schedule is never merged
+        fill("{\"churches\":[{\"id\":" + id + ",\"phone\":\"401-555-0199\","
+            + "\"serviceTimes\":[{\"dayOfWeek\":\"Saturday\",\"time\":\"17:00\",\"type\":\"Mass\"}]}]}", 0);
+        mockMvc.perform(get("/api/churches/" + id))
+            .andExpect(jsonPath("$.phone").value("401-555-0100"))
+            .andExpect(jsonPath("$.serviceTimes.length()").value(1));
+    }
+
+    @Test
+    void fill_neverTouchesAClaimedChurch_andSkipsUnknownIds() throws Exception {
+        Long id = saveChurch("Claimed Fill Fixture Church", null, true);
+
+        fill("{\"churches\":[{\"id\":" + id + ",\"website\":\"https://osm.example.org\"},"
+            + "{\"id\":987654321,\"website\":\"https://nowhere.example.org\"}]}", 0);
+
+        assertNull(churchRepository.findById(id).orElseThrow().getWebsite());
+        assertEquals(false, churchRepository.existsById(987654321L));
+    }
+
+    @Test
+    void fill_requiresTheBulkImportKey() throws Exception {
+        mockMvc.perform(post("/api/scraper/bulk-import/fill")
+                .header("X-Scraper-Api-Key", SCRAPER_KEY)
+                .contentType("application/json")
+                .content("{\"churches\":[]}"))
+            .andExpect(status().isForbidden());
     }
 }

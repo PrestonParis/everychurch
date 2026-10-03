@@ -1,5 +1,7 @@
 package com.everychurch.server.controller;
 
+import com.everychurch.server.dto.BulkFillRequest;
+import com.everychurch.server.dto.BulkFillResponse;
 import com.everychurch.server.dto.BulkImportRequest;
 import com.everychurch.server.dto.BulkImportResponse;
 import com.everychurch.server.dto.ChurchDto;
@@ -51,5 +53,23 @@ public class BulkImportController {
         }
         bulkImportStatusService.recordBatch(request.source(), request.totalNew(), request.churches().size(), created);
         return new BulkImportResponse(created);
+    }
+
+    /**
+     * Backfills blank fields on churches that already exist (osm_fill.py) — same
+     * trusted key as importBatch, but never creates a row and never overwrites a
+     * non-blank value or touches a claimed church; see ChurchService.fillBlanks.
+     * Deliberately not reported through BulkImportStatusService: that drives the
+     * onboarding screen's "churches loading" progress, and a fill adds no churches.
+     */
+    @PostMapping("/fill")
+    public BulkFillResponse fillBatch(@RequestBody BulkFillRequest request) {
+        int updated = 0;
+        for (ChurchDto proposed : request.churches()) {
+            if (churchService.fillBlanks(proposed)) {
+                updated++;
+            }
+        }
+        return new BulkFillResponse(updated);
     }
 }

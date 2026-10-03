@@ -108,6 +108,62 @@ public class ChurchService {
         return toDto(saved);
     }
 
+    /**
+     * Backfill from a trusted bulk source (BulkImportController's /fill, fed by
+     * apps/scraper's osm_fill.py): copies each non-blank field of {@code dto} onto the
+     * church ONLY where the church's own value is blank — never overwrites, so a re-run
+     * or a second source can't clobber what's already there. Service times are filled
+     * only when the church has none at all (merging two schedules would invent one
+     * nobody published). A claimed church is skipped entirely: its owner manages it,
+     * and an import silently editing a claimed profile is exactly what claiming is
+     * meant to prevent. Name, state and coordinates are never touched — the caller
+     * matched on them. Returns false when nothing changed (unknown id, claimed, or no
+     * blank the dto could fill).
+     */
+    public boolean fillBlanks(ChurchDto dto) {
+        if (dto.id() == null) return false;
+        Church c = repo.findById(dto.id()).orElse(null);
+        if (c == null || c.isClaimed()) return false;
+
+        boolean changed = false;
+        changed |= fill(c.getDenomination(), dto.denomination(), c::setDenomination);
+        changed |= fill(c.getAddress(), dto.address(), c::setAddress);
+        changed |= fill(c.getCity(), dto.city(), c::setCity);
+        changed |= fill(c.getZipCode(), dto.zipCode(), c::setZipCode);
+        changed |= fill(c.getPhone(), dto.phone(), c::setPhone);
+        changed |= fill(c.getEmail(), dto.email(), c::setEmail);
+        changed |= fill(c.getWebsite(), dto.website(), c::setWebsite);
+        changed |= fill(c.getDescription(), dto.description(), c::setDescription);
+        changed |= fill(c.getImageUrl(), dto.imageUrl(), c::setImageUrl);
+        changed |= fill(c.getPastor(), dto.pastor(), c::setPastor);
+        changed |= fill(c.getFacebook(), dto.facebook(), c::setFacebook);
+        changed |= fill(c.getInstagram(), dto.instagram(), c::setInstagram);
+        changed |= fill(c.getYoutube(), dto.youtube(), c::setYoutube);
+
+        if (c.getServiceTimes().isEmpty() && dto.serviceTimes() != null && !dto.serviceTimes().isEmpty()) {
+            for (ServiceTimeDto st : dto.serviceTimes()) {
+                ServiceTime s = new ServiceTime();
+                s.setDayOfWeek(st.dayOfWeek());
+                s.setTime(st.time());
+                s.setType(st.type());
+                s.setLanguage(st.language());
+                s.setChurch(c);
+                c.getServiceTimes().add(s);
+            }
+            c.setServiceSummary(buildServiceSummary(dto.serviceTimes()));
+            changed = true;
+        }
+
+        if (changed) repo.save(c);
+        return changed;
+    }
+
+    private static boolean fill(String current, String proposed, java.util.function.Consumer<String> setter) {
+        if ((current != null && !current.isBlank()) || proposed == null || proposed.isBlank()) return false;
+        setter.accept(proposed.trim());
+        return true;
+    }
+
     // geo_point isn't JPA-mapped (Hibernate doesn't natively speak PostGIS types), so
     // it never travels with repo.save() above — this keeps it in permanent sync with
     // latitude/longitude right after, since both are derived from the same source of

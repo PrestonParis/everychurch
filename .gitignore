@@ -66,3 +66,7 @@ Thumbs.db
 ### VS Code ###
 .vscode/
 CLAUDE.md
+
+# Scraper run artifacts (local logs and the Overpass download cache)
+apps/scraper/*.log
+apps/scraper/osm_elements.json

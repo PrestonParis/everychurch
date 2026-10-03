@@ -118,7 +118,7 @@ public class SecurityConfig {
                 // More specific than /api/scraper/** below — must come first, or
                 // Spring Security's first-match-wins ordering would let the broader
                 // hasRole("SCRAPER") rule swallow this path instead.
-                .requestMatchers("/api/scraper/bulk-import").hasRole("BULK_IMPORTER")
+                .requestMatchers("/api/scraper/bulk-import", "/api/scraper/bulk-import/**").hasRole("BULK_IMPORTER")
                 .requestMatchers("/api/scraper/**").hasRole("SCRAPER")
                 .anyRequest().authenticated())
             .httpBasic(basic -> basic.disable())
