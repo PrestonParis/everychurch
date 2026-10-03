@@ -181,6 +181,16 @@ class BulkImportFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void fill_acceptsALongCommonsImageUrl() throws Exception {
+        Long id = saveChurch("Long Image Fill Fixture Church", null, false);
+        String url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + "A".repeat(280) + ".jpg?width=320";
+
+        fill("{\"churches\":[{\"id\":" + id + ",\"imageUrl\":\"" + url + "\"}]}", 1);
+
+        assertEquals(url, churchRepository.findById(id).orElseThrow().getImageUrl());
+    }
+
+    @Test
     void fill_requiresTheBulkImportKey() throws Exception {
         mockMvc.perform(post("/api/scraper/bulk-import/fill")
                 .header("X-Scraper-Api-Key", SCRAPER_KEY)

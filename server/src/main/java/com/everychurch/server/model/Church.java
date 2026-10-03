@@ -28,6 +28,7 @@ public class Church {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(length = 1024)  // Commons thumbnail URLs run past 255 (V22)
     private String imageUrl;
     private String pastor;
     private String facebook;
