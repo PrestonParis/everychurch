@@ -1,6 +1,7 @@
 package com.everychurch.server.service;
 
 import com.everychurch.server.dto.ChurchDto;
+import com.everychurch.server.dto.NormalizeCaseResponse;
 import com.everychurch.server.dto.ServiceTimeDto;
 import com.everychurch.server.model.Church;
 import com.everychurch.server.model.ChurchPermission;
@@ -86,6 +87,20 @@ public class ChurchService {
         return toDto(saved);
     }
 
+    /**
+     * create() for a trusted bulk source (BulkImportController): also gives an ALL-CAPS
+     * name/street/city ordinary capitalization (NameCase), since HIFLD files every
+     * church in capitals. People's own submissions keep exactly what they typed.
+     */
+    public ChurchDto createImported(ChurchDto dto) {
+        Church church = new Church();
+        applyDto(church, dto);
+        fixCase(church);
+        Church saved = repo.save(church);
+        syncGeoPoint(saved);
+        return toDto(saved);
+    }
+
     public ChurchDto update(Long id, ChurchDto dto, User requester) {
         Church church = repo.findById(id)
             .orElseThrow(() -> new NoSuchElementException("Church not found: " + id));
@@ -156,6 +171,37 @@ public class ChurchService {
 
         if (changed) repo.save(c);
         return changed;
+    }
+
+    /**
+     * One batch of the ALL-CAPS backfill (BulkImportController's /normalize-case): the
+     * next {@code limit} churches by id after {@code afterId}, each unclaimed one's
+     * name/street/city run through NameCase. Paged by id so a caller can resume anywhere,
+     * and idempotent, since NameCase leaves anything already mixed-case alone. Claimed
+     * churches are skipped for the same reason fillBlanks skips them.
+     */
+    public NormalizeCaseResponse normalizeCase(long afterId, int limit) {
+        List<Church> batch = repo.findByIdGreaterThanOrderByIdAsc(afterId, PageRequest.of(0, limit));
+        int updated = 0;
+        for (Church c : batch) {
+            if (!c.isClaimed() && fixCase(c)) updated++;  // flushed by dirty checking at commit
+        }
+        Long next = batch.size() < limit ? null : batch.get(batch.size() - 1).getId();
+        return new NormalizeCaseResponse(batch.size(), updated, next);
+    }
+
+    private static boolean fixCase(Church c) {
+        boolean changed = false;
+        changed |= replace(c.getName(), NameCase.fix(c.getName()), c::setName);
+        changed |= replace(c.getAddress(), NameCase.fix(c.getAddress()), c::setAddress);
+        changed |= replace(c.getCity(), NameCase.fix(c.getCity()), c::setCity);
+        return changed;
+    }
+
+    private static boolean replace(String current, String fixed, java.util.function.Consumer<String> setter) {
+        if (Objects.equals(current, fixed)) return false;
+        setter.accept(fixed);
+        return true;
     }
 
     private static boolean fill(String current, String proposed, java.util.function.Consumer<String> setter) {

@@ -33,6 +33,7 @@ bulk_import.py — run manually:
 """
 
 import logging
+import re
 import time
 from typing import Callable, List, Optional
 
@@ -112,29 +113,48 @@ _INCLUDE_NAME_KEYWORDS = (
 )
 
 # Best-effort denomination guess from the organization's own filed name — there is no
-# denom/cath/prot column here at all (unlike the Kaggle mirror). Each keyword maps to
-# exactly one DENOMINATIONS label (church.model.ts), so match order doesn't affect
-# correctness; first match wins for the (currently nonexistent) case of two keywords in
-# one name.
-_DENOMINATION_NAME_KEYWORDS = (
-    ("catholic", "Catholic"),
-    ("orthodox", "Eastern Orthodox"),
-    ("baptist", "Baptist"),
-    ("church of christ", "Church of Christ"),
-    ("episcopal", "Episcopal/Anglican"),
-    ("anglican", "Episcopal/Anglican"),
-    ("latter-day", "Latter-day Saint (LDS)"),
-    ("mormon", "Latter-day Saint (LDS)"),
-    ("lutheran", "Lutheran"),
-    ("methodist", "Methodist"),
-    ("pentecostal", "Pentecostal / Assembly of God"),
-    ("assembly of god", "Pentecostal / Assembly of God"),
-    ("presbyterian", "Presbyterian"),
-    ("adventist", "Seventh-day Adventist"),
-    ("non-denominational", "Non-denominational"),
-    ("nondenominational", "Non-denominational"),
-    ("evangelical", "Evangelical"),
-)
+# denom/cath/prot column here at all (unlike the Kaggle mirror). Each pattern maps to one
+# DENOMINATIONS label (church.model.ts), using the same buckets as bulk_import.py's
+# DENOMINATION_CODE_MAP (Nazarene/C&MA/Vineyard → Evangelical; Church of God, Apostolic,
+# Foursquare, COGIC → Pentecostal; Wesleyan, AME/CME → Methodist; Brethren, Mennonite,
+# Reformed, UCC, Disciples, Quaker → Other), so a name-matched row and a code-mapped one
+# agree. A None label leaves the church blank: its words would otherwise hit a wrong bucket.
+#
+# Order matters — the first match wins, and many real names contain another body's words:
+#   "African Methodist Episcopal" is Methodist, not Episcopal;
+#   "United Church of Christ" is Congregational (Other), not Church of Christ;
+#   "Reformed Presbyterian" is Presbyterian, not Reformed;
+#   "New Apostolic" and "Apostolic Christian" are their own bodies, not Pentecostal;
+#   "Church of God (Seventh Day)" is Sabbatarian, not Pentecostal;
+#   "Evangelical Lutheran", "Evangelical Free" etc. take the more specific label.
+# Patterns match whole words (\b) on the lowercased name, so "ame" never hits "James".
+_DENOMINATION_NAME_PATTERNS = tuple((re.compile(pattern), label) for pattern, label in (
+    (r"\barmenian apostolic\b|\bassyrian\b", None),  # Oriental/Assyrian bodies: no honest bucket
+    (r"\bunited church of christ\b|\bucc\b", "Other"),
+    (r"\bnew apostolic\b|\bapostolic christian\b", "Other"),
+    (r"\bchurch of god\b.*\bseventh[- ]day\b|\bseventh[- ]day church of god\b"
+     r"|\biglesia de dios\b.*\bs[eé]ptimo d[ií]a\b", "Other"),
+    (r"\bcatholic\b|\bcat[oó]lica\b", "Catholic"),
+    (r"\borthodox\b|\bortodoxa\b", "Eastern Orthodox"),
+    (r"\blatter[- ]day\b|\bmormon\b", "Latter-day Saint (LDS)"),
+    (r"\badventist\b|\badventista\b", "Seventh-day Adventist"),
+    (r"\bmethodist\b|\bmetodista\b|\bwesleyan\b|\ba\.? ?m\.? ?e\.?( ?z\.?)?\b|\bc\.? ?m\.? ?e\.?\b",
+     "Methodist"),
+    (r"\blutheran\b|\bluterana\b", "Lutheran"),
+    (r"\bpresbyterian\b|\bpresbiteriana\b", "Presbyterian"),
+    (r"\bbaptist\b|\bbautista\b|\bbatista\b", "Baptist"),
+    (r"\bepiscopal\b|\banglican\b", "Episcopal/Anglican"),
+    (r"\bchurch(es)? of christ\b|\biglesia de cristo\b", "Church of Christ"),
+    (r"\bpentecostal\b|\bassembl(y|ies) of god\b|\basamblea de dios\b|\bfoursquare\b"
+     r"|\bchurch of god\b|\biglesia de dios\b|\bcogic\b|\bapost[oó]lic[oa]?\b",
+     "Pentecostal / Assembly of God"),
+    (r"\bnon-?denominational\b", "Non-denominational"),
+    (r"\bnazarene\b|\bnazareno\b|\bchristian (and|&) missionary alliance\b|\balliance church\b"
+     r"|\bvineyard\b|\bcalvary chapel\b|\bevangelical\b|\bevang[eé]lica\b",
+     "Evangelical"),
+    (r"\bbrethren\b|\bmennonite\b|\bamish\b|\breformed\b|\bcongregational\b"
+     r"|\bdisciples of christ\b|\bquaker\b|\bfriends meeting\b|\bunitarian\b", "Other"),
+))
 
 
 def _clean(value) -> Optional[str]:
@@ -167,8 +187,8 @@ def _denomination_from_name(name: Optional[str]) -> Optional[str]:
     if not name:
         return None
     lower = name.lower()
-    for keyword, denomination in _DENOMINATION_NAME_KEYWORDS:
-        if keyword in lower:
+    for pattern, denomination in _DENOMINATION_NAME_PATTERNS:
+        if pattern.search(lower):
             return denomination
     return None
 

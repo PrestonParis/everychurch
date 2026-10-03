@@ -188,4 +188,55 @@ class BulkImportFlowTest extends AbstractIntegrationTest {
                 .content("{\"churches\":[]}"))
             .andExpect(status().isForbidden());
     }
+
+    // --- capitalization (NameCase) ---------------------------------------------------
+
+    @Test
+    void importedAllCapsNamesGetOrdinaryCapitalization() throws Exception {
+        mockMvc.perform(post("/api/scraper/bulk-import")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .contentType("application/json")
+                .content("{\"churches\":[{\"name\":\"CAPS IMPORT FIXTURE AME CHURCH OF THE VALLEY\","
+                    + "\"address\":\"920 3RD ST SE\",\"city\":\"CAPSVILLE\",\"state\":\"QZ\"}]}"))
+            .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/churches").param("state", "QZ").param("city", "capsville"))
+            .andExpect(jsonPath("$.content[0].name").value("Caps Import Fixture AME Church of the Valley"))
+            .andExpect(jsonPath("$.content[0].address").value("920 3rd St SE"))
+            .andExpect(jsonPath("$.content[0].city").value("Capsville"))
+            .andExpect(jsonPath("$.content[0].state").value("QZ"));
+    }
+
+    @Test
+    void normalizeCase_fixesUnclaimedAllCapsChurchesInIdPages() throws Exception {
+        Long caps = saveChurch("NORMALIZE FIXTURE BAPTIST CHURCH", null, false);
+        Long claimed = saveChurch("NORMALIZE FIXTURE CLAIMED CHURCH", null, true);
+        Long mixed = saveChurch("Normalize Fixture GRACE Church", null, false);
+
+        mockMvc.perform(post("/api/scraper/bulk-import/normalize-case")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .param("afterId", String.valueOf(caps - 1))
+                .param("limit", "3"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.scanned").value(3))
+            .andExpect(jsonPath("$.updated").value(1))
+            .andExpect(jsonPath("$.nextAfterId").value(mixed));
+
+        assertEquals("Normalize Fixture Baptist Church", churchRepository.findById(caps).orElseThrow().getName());
+        assertEquals("NORMALIZE FIXTURE CLAIMED CHURCH", churchRepository.findById(claimed).orElseThrow().getName());
+        assertEquals("Normalize Fixture GRACE Church", churchRepository.findById(mixed).orElseThrow().getName());
+
+        // past the last church: nothing scanned, and no next page
+        mockMvc.perform(post("/api/scraper/bulk-import/normalize-case")
+                .header("X-Bulk-Import-Api-Key", BULK_KEY)
+                .param("afterId", String.valueOf(Long.MAX_VALUE - 1)))
+            .andExpect(jsonPath("$.scanned").value(0))
+            .andExpect(jsonPath("$.nextAfterId").doesNotExist());
+    }
+
+    @Test
+    void normalizeCase_requiresTheBulkImportKey() throws Exception {
+        mockMvc.perform(post("/api/scraper/bulk-import/normalize-case").header("X-Scraper-Api-Key", SCRAPER_KEY))
+            .andExpect(status().isForbidden());
+    }
 }

@@ -162,6 +162,27 @@ python -m scraper.wikidata_fill
 
 **No 8km "misplaced" fallback:** that rule needs the item's state, and Wikidata's comes from a P131 location chain that's too slow to query nationwide — so Wikidata matching is the within-1km name-match tiers only.
 
+## Denomination backfill from names (2026-10-03)
+
+*Implemented* — `scraper/denomination_fill.py`, same `/fill` endpoint and blanks-only/never-claimed guarantees. Labels a church with a blank denomination from its own name, using the HIFLD import's ordered name patterns (`hifld_import._DENOMINATION_NAME_PATTERNS`):
+
+```sh
+python -m scraper.denomination_fill --dry-run   # report + 25 sample fills, sends nothing
+python -m scraper.denomination_fill
+```
+
+The patterns now cover the bodies the first pass missed, bucketed the same way as `bulk_import.DENOMINATION_CODE_MAP`: Nazarene, C&MA, Vineyard and Calvary Chapel go to Evangelical; Church of God, Apostolic, Foursquare and COGIC go to Pentecostal; Wesleyan and AME/CME go to Methodist; Brethren, Mennonite, Reformed, UCC, Disciples and Quaker go to Other. Spanish names are covered too (Bautista, Metodista, Iglesia de Dios, ...). Order matters and is documented in the code, e.g. "African Methodist Episcopal" is Methodist and "United Church of Christ" is not Church of Christ. A name that matches nothing stays blank.
+
+**Fixed with it (2026-10-03):** the old patterns labelled "United Church of Christ" congregations as Church of Christ. `V21__relabel_united_church_of_christ.sql` moves those to Other. The "Church of Christ" search filter also never matched its own label (it looked only for a raw `COC` code), so it returned nothing and those churches showed under Other. `ChurchRepository.search` now matches the label.
+
+## Capitalization (2026-10-03)
+
+HIFLD files every name, street and city in capitals. `NameCase` (server) gives them ordinary capitalization: "ST JAMES AME CHURCH OF THE VALLEY" becomes "St James AME Church of the Valley", and "920 3RD ST SE" becomes "920 3rd St SE". Acronyms (AME, LDS, PO, NE, Roman numerals) and a trailing state code stay upper-case. Only a value with no lowercase letter is touched; anything mixed-case was cased by a person or a better source. Claimed churches are skipped.
+
+- New bulk imports are fixed on the way in (`ChurchService.createImported`).
+- Existing rows: `POST /api/scraper/bulk-import/normalize-case?afterId=0&limit=1000` (bulk-import key) fixes one id-ordered batch and returns `{scanned, updated, nextAfterId}`. Call again with `nextAfterId` until it is null. Idempotent.
+- Reverting is exact, since every converted value was all-caps: `UPDATE churches SET name = UPPER(name), ...`.
+
 ## Website crawl backfill (2026-10-02)
 
 *Implemented* — `scraper/website_fill.py`, same `/fill` endpoint and blanks-only/never-claimed guarantees as the other backfills. Fills **service times, pastor and description** by reading each church's own website. Free (no API key, no per-call cost), unlike Places enrichment. Run it **after** `osm_fill` and `wikidata_fill`, since it only visits churches that already have a website:

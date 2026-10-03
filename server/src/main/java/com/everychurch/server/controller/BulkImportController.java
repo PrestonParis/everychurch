@@ -5,12 +5,14 @@ import com.everychurch.server.dto.BulkFillResponse;
 import com.everychurch.server.dto.BulkImportRequest;
 import com.everychurch.server.dto.BulkImportResponse;
 import com.everychurch.server.dto.ChurchDto;
+import com.everychurch.server.dto.NormalizeCaseResponse;
 import com.everychurch.server.service.BulkImportStatusService;
 import com.everychurch.server.service.ChurchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -41,7 +43,7 @@ public class BulkImportController {
         int created = 0;
         try {
             for (ChurchDto proposed : request.churches()) {
-                churchService.create(proposed);
+                churchService.createImported(proposed);
                 created++;
             }
         } catch (RuntimeException e) {
@@ -71,5 +73,16 @@ public class BulkImportController {
             }
         }
         return new BulkFillResponse(updated);
+    }
+
+    /**
+     * One batch of the one-time ALL-CAPS backfill (ChurchService.normalizeCase). Call
+     * with afterId=0, then each response's nextAfterId until it comes back null.
+     */
+    @PostMapping("/normalize-case")
+    public NormalizeCaseResponse normalizeCase(
+            @RequestParam(defaultValue = "0") long afterId,
+            @RequestParam(defaultValue = "500") int limit) {
+        return churchService.normalizeCase(afterId, Math.max(1, Math.min(limit, 1000)));
     }
 }

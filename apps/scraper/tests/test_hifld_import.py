@@ -81,6 +81,42 @@ def test_denomination_from_name_matches_known_keywords():
     assert _denomination_from_name("GRACE EVANGELICAL CHURCH") == "Evangelical"
 
 
+def test_denomination_from_name_covers_bodies_bucketed_like_the_kaggle_code_map():
+    assert _denomination_from_name("BELLS CHAPEL CHURCH OF THE NAZARENE") == "Evangelical"
+    assert _denomination_from_name("CHURCH OF GOD BY FAITH") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CHRIST APOSTOLIC CHURCH MOUNTAIN OF GLORY INC") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("ANGELUS TEMPLE FOURSQUARE CHURCH") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("IGLESIA DE DIOS PENTECOSTAL") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("FIRST WESLEYAN CHURCH") == "Methodist"
+    assert _denomination_from_name("IGLESIA BAUTISTA EMANUEL") == "Baptist"
+    assert _denomination_from_name("GRACE BRETHREN CHURCH") == "Other"
+    assert _denomination_from_name("FIRST CHRISTIAN CHURCH DISCIPLES OF CHRIST") == "Other"
+
+
+def test_denomination_from_name_reads_ame_and_cme_as_whole_words():
+    assert _denomination_from_name("BETHEL AME CHURCH") == "Methodist"
+    assert _denomination_from_name("BETHEL A M E CHURCH") == "Methodist"
+    assert _denomination_from_name("MT ZION A.M.E. ZION CHURCH") == "Methodist"
+    assert _denomination_from_name("GRACE CME CHURCH") == "Methodist"
+    assert _denomination_from_name("ST JAMES CHAPEL") is None
+
+
+def test_denomination_from_name_prefers_the_more_specific_body():
+    assert _denomination_from_name("AFRICAN METHODIST EPISCOPAL CHURCH") == "Methodist"
+    assert _denomination_from_name("PILGRIM UNITED CHURCH OF CHRIST") == "Other"
+    assert _denomination_from_name("REFORMED PRESBYTERIAN CHURCH") == "Presbyterian"
+    assert _denomination_from_name("EVANGELICAL LUTHERAN CHURCH") == "Lutheran"
+    assert _denomination_from_name("NEW APOSTOLIC CHURCH OF WATERVLIET MI") == "Other"
+    assert _denomination_from_name("APOSTOLIC CHRISTIAN CHURCH OF MEDIAPOLIS") == "Other"
+    assert _denomination_from_name("IGLESIA DE DIOS SEPTIMO DIA INC") == "Other"
+    assert _denomination_from_name("SEVENTH DAY CHURCH OF GOD") == "Other"
+
+
+def test_denomination_from_name_leaves_bodies_with_no_honest_bucket_blank():
+    assert _denomination_from_name("ST GREGORY ARMENIAN APOSTOLIC CHURCH") is None
+    assert _denomination_from_name("HOLY APOSTOLIC CATHOLIC ASSYRIAN CHURCH OF THE EAST") is None
+
+
 def test_denomination_from_name_returns_none_when_nothing_matches():
     assert _denomination_from_name("COMMUNITY CHURCH") is None
 
