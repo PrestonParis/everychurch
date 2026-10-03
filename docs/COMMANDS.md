@@ -9,6 +9,19 @@ cd apps/scraper && poetry install && cd ../..   # Python deps for the scraper
 
 Copy `.env.example` to `.env` and fill in real values before running the server against a real database (see "Database" below). Never commit `.env`.
 
+## Production URLs
+
+| What | URL | Hosted on |
+|---|---|---|
+| Website (Angular client) | https://everychurch.co | Vercel |
+| API server (Spring Boot) | https://everychurch-server-274948593192.us-east1.run.app | Google Cloud Run (us-east1) |
+
+The website and API are on **different hosts**. `vercel.json` rewrites `everychurch.co/api/*` and `/ws/*` to the Cloud Run URL, so the browser only ever talks to everychurch.co. For scripts, **set `SERVER_BASE_URL` to the Cloud Run URL**, not everychurch.co. The scraper and import scripts make slow requests (paging the whole directory, 100-row bulk batches), and the extra hop through Vercel's proxy can time those out.
+
+Quick health check (public, read-only): `curl https://everychurch-server-274948593192.us-east1.run.app/api/import-status`
+
+If the Cloud Run URL ever changes, update it here, in `vercel.json`, and in [ARCHITECTURE.md](ARCHITECTURE.md) "Deployment / Hosting".
+
 ## Dev servers
 
 ```sh
