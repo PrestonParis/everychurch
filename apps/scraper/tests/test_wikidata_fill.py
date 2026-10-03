@@ -104,6 +104,8 @@ def test_fetch_free_images_keeps_only_attribution_free_files():
     responses.add(responses.GET, COMMONS_API_URL, json={"query": {"pages": [
         {"title": "File:Free.jpg", "imageinfo": [{"extmetadata": {"AttributionRequired": {"value": "false"}}}]},
         {"title": "File:BySa.jpg", "imageinfo": [{"extmetadata": {"AttributionRequired": {"value": "true"}}}]},
+        {"title": "File:NoMeta.jpg", "imageinfo": [{"extmetadata": []}]},
+        {"title": "File:NoField.jpg", "imageinfo": [{"extmetadata": {"AttributionRequired": []}}]},
         {"title": "File:Missing.jpg", "missing": True},
     ]}})
     responses.add(responses.GET, COMMONS_API_URL, json={})

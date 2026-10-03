@@ -208,7 +208,11 @@ def fetch_free_images(
         })
         for page in body.get("query", {}).get("pages", []):
             info = (page.get("imageinfo") or [{}])[0]
-            required = info.get("extmetadata", {}).get("AttributionRequired", {}).get("value")
+            # A file with no metadata comes back as "extmetadata": [] (PHP's empty array),
+            # not {}: treat it as unknown, which keeps the image out.
+            meta = info.get("extmetadata")
+            field = meta.get("AttributionRequired") if isinstance(meta, dict) else None
+            required = field.get("value") if isinstance(field, dict) else None
             if required == "false":
                 free.add(page["title"][len("File:"):])
     return free
