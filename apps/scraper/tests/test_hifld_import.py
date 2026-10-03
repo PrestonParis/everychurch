@@ -83,10 +83,15 @@ def test_denomination_from_name_matches_known_keywords():
 
 def test_denomination_from_name_covers_bodies_bucketed_like_the_kaggle_code_map():
     assert _denomination_from_name("BELLS CHAPEL CHURCH OF THE NAZARENE") == "Evangelical"
-    assert _denomination_from_name("CHURCH OF GOD BY FAITH") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("SWEET ANOINTING CHURCH OF GOD IN CHRIST") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CHURCH OF GOD OF PROPHECY BIBLE PLACE") == "Pentecostal / Assembly of God"
     assert _denomination_from_name("CHRIST APOSTOLIC CHURCH MOUNTAIN OF GLORY INC") == "Pentecostal / Assembly of God"
     assert _denomination_from_name("ANGELUS TEMPLE FOURSQUARE CHURCH") == "Pentecostal / Assembly of God"
     assert _denomination_from_name("IGLESIA DE DIOS PENTECOSTAL") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CLAY COUNTY FIRST CHURCH OF GOD") is None
+    assert _denomination_from_name("IGLESIA DE DIOS LA ROCA") is None
+    assert _denomination_from_name("IGLESIA DE CRISTO KADOSH") is None
+    assert _denomination_from_name("IGLESIA EVANGELICA MISIONERA") is None
     assert _denomination_from_name("FIRST WESLEYAN CHURCH") == "Methodist"
     assert _denomination_from_name("IGLESIA BAUTISTA EMANUEL") == "Baptist"
     assert _denomination_from_name("GRACE BRETHREN CHURCH") == "Other"

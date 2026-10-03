@@ -127,6 +127,9 @@ _INCLUDE_NAME_KEYWORDS = (
 #   "New Apostolic" and "Apostolic Christian" are their own bodies, not Pentecostal;
 #   "Church of God (Seventh Day)" is Sabbatarian, not Pentecostal;
 #   "Evangelical Lutheran", "Evangelical Free" etc. take the more specific label.
+# Deliberately not matched, as too ambiguous to label: a plain "Church of God" (Cleveland,
+# TN is Pentecostal; Anderson, IN is not), "Iglesia de Dios", "Iglesia de Cristo" (often
+# not the Churches of Christ), and Spanish "evangélica" (usually just "Protestant").
 # Patterns match whole words (\b) on the lowercased name, so "ame" never hits "James".
 _DENOMINATION_NAME_PATTERNS = tuple((re.compile(pattern), label) for pattern, label in (
     (r"\barmenian apostolic\b|\bassyrian\b", None),  # Oriental/Assyrian bodies: no honest bucket
@@ -144,13 +147,13 @@ _DENOMINATION_NAME_PATTERNS = tuple((re.compile(pattern), label) for pattern, la
     (r"\bpresbyterian\b|\bpresbiteriana\b", "Presbyterian"),
     (r"\bbaptist\b|\bbautista\b|\bbatista\b", "Baptist"),
     (r"\bepiscopal\b|\banglican\b", "Episcopal/Anglican"),
-    (r"\bchurch(es)? of christ\b|\biglesia de cristo\b", "Church of Christ"),
+    (r"\bchurch(es)? of christ\b", "Church of Christ"),
     (r"\bpentecostal\b|\bassembl(y|ies) of god\b|\basamblea de dios\b|\bfoursquare\b"
-     r"|\bchurch of god\b|\biglesia de dios\b|\bcogic\b|\bapost[oó]lic[oa]?\b",
+     r"|\bchurch of god (in christ|of prophecy|of the apostolic faith)\b|\bcogic\b|\bapost[oó]lic[oa]?\b",
      "Pentecostal / Assembly of God"),
     (r"\bnon-?denominational\b", "Non-denominational"),
     (r"\bnazarene\b|\bnazareno\b|\bchristian (and|&) missionary alliance\b|\balliance church\b"
-     r"|\bvineyard\b|\bcalvary chapel\b|\bevangelical\b|\bevang[eé]lica\b",
+     r"|\bvineyard\b|\bcalvary chapel\b|\bevangelical\b",
      "Evangelical"),
     (r"\bbrethren\b|\bmennonite\b|\bamish\b|\breformed\b|\bcongregational\b"
      r"|\bdisciples of christ\b|\bquaker\b|\bfriends meeting\b|\bunitarian\b", "Other"),
