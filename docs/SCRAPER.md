@@ -192,7 +192,7 @@ python -m scraper.website_fill --dry-run --cache website_crawl.jsonl --states RI
 python -m scraper.website_fill --cache website_crawl.jsonl                         # reuses the crawl, sends the fills
 ```
 
-`--cache` appends one JSON line per church as it goes. An interrupted run resumes where it stopped, and the real run reuses a dry run's crawl. A church whose website has changed since is crawled again. `--workers` (default 16) is how many sites are crawled at once; `--limit` caps a trial run.
+`--cache` appends one JSON line per church as it goes. An interrupted run resumes where it stopped, and the real run reuses a dry run's crawl. A church whose website has changed since is crawled again. `--workers` (default 16) is how many sites are crawled at once; `--limit` caps a trial run. With `--states`, only those states' churches are fetched from the API (3 requests for RI instead of ~1,000 for the whole directory, which timed out on the first RI run), so the shared-website check covers those states only.
 
 **What it reads:** the homepage plus up to 4 same-site pages picked by link text/URL: two about services ("Mass Times", "Worship", "Plan a Visit") and two about the pastor ("Our Pastor", "Staff", "About"). A dedicated service-times page wins over the homepage; schedules from different pages are never merged.
 
@@ -208,6 +208,7 @@ A "Sunday" heading carries down to the bare times under it. Two-column layouts (
 
 **Guards against filling the wrong church:**
 - the homepage must mention the church's name, so lapsed domains now showing a parking page are skipped;
+- if every address on the site is in another state, it's a same-named church elsewhere and is skipped. First RI run: Immaculate Conception, Cranston was tagged in OSM with the Copperton, Utah parish's site;
 - a website shared by several churches (diocese, denomination or national site) is skipped for all of them;
 - a description found on more than one church's site is dropped as boilerplate;
 - social/profile "websites" (Facebook, Instagram, Linktree, jw.org, ...) are never crawled.

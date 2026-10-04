@@ -22,6 +22,8 @@ picked by link text/URL: "Mass Times", "Worship", "Plan a Visit", "Our Pastor", 
 **Guards against filling the wrong church:**
   - the homepage must mention the church's name (a distinctive word of it), so a lapsed
     domain now serving a parking page or someone else's site is skipped;
+  - if the site's addresses are all in another state, it's a same-named church elsewhere
+    (a mistagged website) and is skipped;
   - a website listed on more than one church (a diocese or denomination site) is skipped,
     since its schedule belongs to one of them at most;
   - a description found on more than one church's site is boilerplate and dropped.
@@ -309,6 +311,41 @@ def mentions_name(name: Optional[str], text: str) -> bool:
     return all(w in page for w in words if w not in ("the", "and"))
 
 
+# --- location check -----------------------------------------------------------------
+
+_STATE_NAMES = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas", "CA": "California",
+    "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware", "DC": "District of Columbia",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho", "IL": "Illinois", "IN": "Indiana",
+    "IA": "Iowa", "KS": "Kansas", "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi", "MO": "Missouri",
+    "MT": "Montana", "NE": "Nebraska", "NV": "Nevada", "NH": "New Hampshire", "NJ": "New Jersey",
+    "NM": "New Mexico", "NY": "New York", "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio",
+    "OK": "Oklahoma", "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah", "VT": "Vermont",
+    "VA": "Virginia", "WA": "Washington", "WV": "West Virginia", "WI": "Wisconsin", "WY": "Wyoming",
+}
+_STATE_CODE_BY_NAME = {name.lower(): code for code, name in _STATE_NAMES.items()}
+# The state in an address: "Copperton, UT 84006" or "Copperton, Utah".
+_ADDRESS_STATE = re.compile(
+    r",\s+(?:(?P<code>[A-Z]{2})\.?\s+\d{5}\b|(?P<name>"
+    + "|".join(sorted(_STATE_NAMES.values(), key=len, reverse=True)) + r")\b)"
+)
+
+
+def other_state_only(state: Optional[str], text: str) -> bool:
+    """Whether every address on the site is in some other state than the church's. A
+    mistagged website can belong to a same-named church elsewhere ("Immaculate Conception"
+    in Cranston, RI tagged with the one in Copperton, Utah), which the name check passes.
+    A site with no address at all is given the benefit of the doubt."""
+    found = set()
+    for match in _ADDRESS_STATE.finditer(text):
+        code = match.group("code") or _STATE_CODE_BY_NAME[match.group("name").lower()]
+        if code in _STATE_NAMES:
+            found.add(code)
+    return bool(state and found and state.upper() not in found)
+
+
 # --- service times ------------------------------------------------------------------
 
 _DAY_NAMES = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
@@ -339,9 +376,9 @@ _CLOCK = re.compile(r"\d\s*[ap]\.?\s?m\b|\bnoon\b|\b\d{1,2}:\d\d\b")
 _MASS = re.compile(r"\bmass(?:es)?\b|\bmisas?\b")
 _LIST_GAP = re.compile(r"^\s*(?:,|&|\+|/|and|or)?\s*(?:,|&|and|or)?\s*$")
 _RANGE_GAP = re.compile(r"^\s*(?:-|–|—|to|until|till)\s*$")
-# Parenthesized asides with a number in them are alternate times ("10:00 AM (9:00 AM in
-# summer)"), not services. "(Spanish)" stays.
-_PARENS = re.compile(r"\([^)]*\d[^)]*\)")
+# Parenthesized asides with a number or a day in them are alternate times or notes
+# ("10:00 AM (9:00 AM in summer)", "Saturday (Sunday Vigil)"), not services. "(Spanish)" stays.
+_PARENS = re.compile(r"\([^)]*(?:\d|day\b)[^)]*\)")
 # A range split over three lines: "3:00 PM" / "to" / "3:45 PM".
 _RANGE_LINE = re.compile(r"^(?:-|–|—|to|until|till)$", re.I)
 
@@ -355,8 +392,8 @@ _WORSHIP = re.compile(
 # monthly schedules, and anything timed relative to something else ("after the service").
 _EXCLUDE = re.compile(
     r"office|oficina|\bhours\b|school|escuela|class|coffee|fellowship hour|fellowship time|breakfast|"
-    r"lunch|dinner|supper|potluck|choir|rehearsal|practice|(?<!sacrament )meeting|youth|\bkids?\b|"
-    r"children|nursery|student|\bteens?\b|prayer|oraci[oó]n|confession|reconciliation|penance|adoration|rosary|novena|"
+    r"lunch|dinner|supper|potluck|rehearsal|practice|(?<!sacrament )meeting|youth|\bkids?\b|"
+    r"children|nursery|student|\bteens?\b|confession|reconciliation|penance|adoration|rosary|novena|"
     r"stations of|pantry|bingo|check-in|\bdrill|wedding|funeral|baptism|registration|deadline|closed|"
     r"\buntil\b|\bafter\b|following|\bbefore\b|\bprior\b|doors open|broadcast|radio|channel|\btv\b|"
     r"television|replay|recorded|holy day|holiday|christmas|easter|thanksgiving|\blent|advent|"
@@ -364,16 +401,27 @@ _EXCLUDE = re.compile(
     r"once a month|monthly|every other|\bmonth\b|seniors|\bmen'?s\b|women'?s|ladies|small group|"
     r"\bgroups?\b|zoom|\btours?\b|bulletin|\bvbs\b|\bcamp\b|concert|festival|\bfair\b|\bsale\b|"
     r"community service|service project|parking|shuttle|tickets?|\bwatch\b|cable|"
-    r"[uú]ltimo|primer|\bmes\b|confesi|bautism|bautizo|quincea|catecismo|clases?\b"
+    r"[uú]ltimo|primer|\bmes\b|mensual|\b1er\b|confesi|bautism|bautizo|quincea|catecismo|clases?\b|appointment|cita\b"
 )
+# Not a service on their own ("Prayer Gathering 9am"), but part of one in "Evening Prayer &
+# Low Mass" or "Solemn Mass with Choir".
+_SOFT_EXCLUDE = re.compile(r"prayer|oraci[oó]n|choir|coro\b")
+_NAMES_SERVICE = re.compile(r"\bmass(?:es)?\b|\bmisas?\b|eucharist|worship|liturg|divine service")
+# Checked before parenthesized asides are dropped: "10 AM Low Mass (3rd Saturday of the month)".
+_MONTHLY = re.compile(r"\b(?:1st|2nd|3rd|4th|5th|first|second|third|fourth|last)\b.*\bmonth\b|monthly|mensual")
 # A subheading naming a church: on a site shared by several churches ("St. Mary of the
 # Assumption", "St. Henry"), the times under it belong to that church. "Holy ..." and the
 # like only count with "Church" etc. at the end; "Holy Orders" is a menu item.
 _PLACE_START = re.compile(r"^(?:st|sts|ss|saint|saints|san|santa|nuestra|our lady)\b")
 _PLACE_END = re.compile(r"\b(?:church|chapel|parish|cathedral|campus|basilica|shrine)$")
 _NOT_PLACE = re.compile(r"welcome|about|visit|join|\bour\b(?! lady)|\byour\b|\bthis\b")
+# A place attached to one time in a list: "8 am, 9:15 am (St. Alexander Church), 10:30 am".
+_TIME_AT_PLACE = re.compile(
+    r"\d{1,2}(?::\d{2})?\s*[ap]\.?\s?m\b\.?(?P<place>\s*(?:,|\(|@|\bat\b|[-–—])\s*"
+    r"(?P<name>(?:st|sts|saint|our lady|holy)\b[^\d,;)]*)\)?)"
+)
 _AT_PLACE = re.compile(
-    r"(?:\bat|@|[-–—])\s*((?:st|sts|saint|our lady|holy)\b[^\d]*)"  # "10:30 am at St. Mary", "9:15am- St. Patrick"
+    r"(?:\bat|@|[-–—,(])\s*((?:st|sts|saint|our lady|holy)\b[^\d)]*)\)?"  # "10:30 am at St. Mary", "9:15 am, St. Alexander"
     r"|^((?:st|sts|saint|our lady|holy)\b[^–—:-]{0,40}?)\s*[–—:-]"  # "St. Joan of Arc – Monday 9 am"
 )
 # A specific date ("Oct 4", "10/4", "2026") makes it a one-off event, not the weekly schedule.
@@ -585,6 +633,17 @@ def _join_ranges(lines: Iterable[str]) -> List[str]:
     return joined
 
 
+def _drop_other_places(line: str, name: str) -> str:
+    """Each time followed by a place: drop the time if the place is another church,
+    otherwise just the place. "8 am, 9:15 am (St. Alexander Church), 10:30 am" → "8 am, 10:30 am"
+    for St. Mary of the Bay."""
+    def keep_or_drop(match: "re.Match[str]") -> str:
+        if mentions_name(name, match.group("name")):
+            return match.group(0)[:match.start("place") - match.start()]
+        return " "
+    return _TIME_AT_PLACE.sub(keep_or_drop, line)
+
+
 def _place(line: str, tokens: List[Token]) -> bool:
     text = line.strip(" :-–—")
     return bool(
@@ -613,6 +672,8 @@ def extract_service_times(lines: Iterable[str], catholic: bool = False, name: Op
     clocks = [len(line) <= _MAX_LINE_CHARS and bool(_CLOCK.search(line.lower())) for line in lines]
     for index, original in enumerate(lines):
         line = _PARENS.sub(" ", original).lower()
+        if name:
+            line = _drop_other_places(line, name)
         tokens = _tokens(line) if len(line) <= _MAX_LINE_CHARS else []
         # A line whose only times were a dropped range ("Saturday 4:30 - 5:45 pm") is
         # still a time line, not a heading for the lines below it.
@@ -666,7 +727,9 @@ def extract_service_times(lines: Iterable[str], catholic: bool = False, name: Op
                 continue
         elif not ours:
             continue
-        if _DATED.search(line) or _EXCLUDE.search(line):
+        if _DATED.search(line) or _EXCLUDE.search(line) or _MONTHLY.search(original.lower()):
+            continue
+        if _SOFT_EXCLUDE.search(line) and not _NAMES_SERVICE.search(line):
             continue
         # An excluded label only matters to a line that doesn't name its own service:
         # "Sunday Mass 9 am" right under "Confessions: Saturday 3 pm" is still a Mass.
@@ -744,7 +807,8 @@ _NOT_NAME_WORDS = {
     "app", "bulletins", "bulletin", "newsletter", "school", "preschool", "youth", "kids", "children",
     "women", "men", "music", "choir", "outreach", "missions", "care", "leadership", "elders", "deacons",
     "council", "vestry", "sacraments", "faith", "formation", "religious", "education", "ministries",
-    "deacon", "deacons", "sister", "brother", "close", "open", "menu", "toggle", "skip", "navigation", "main", "content", "search", "back", "top",
+    "deacon", "deacons", "sister", "brother", "bible", "study", "studies", "training", "class",
+    "classes", "small", "group", "prayer", "worship", "fellowship", "volunteer", "volunteers", "close", "open", "menu", "toggle", "skip", "navigation", "main", "content", "search", "back", "top",
 }
 _INITIAL = re.compile(r"(?:[^\W\d_]\.){1,3}|[A-Z]{1,2}")
 
@@ -889,7 +953,7 @@ def extract_pastor(pages: Iterable[List[str]]) -> Optional[str]:
 _BAD_DESCRIPTION = re.compile(
     r"wordpress|squarespace|\bwix\b|weebly|godaddy|just another|lorem ipsum|\btheme\b|website builder|"
     r"powered by|coming soon|under construction|not found|\b404\b|default|followers|talking about this|"
-    r"cookies?|javascript|log ?in|sign ?in|\bdomain\b|home ?page|web ?site of|@| \| |"
+    r"cookies?|javascript|log ?in|sign ?in|\bdomain\b|home ?page|web ?site of|@| \| |follow us|facebook|instagram|"
     r"\(?\b\d{3}\)?[-.\s]\d{3}[-.]\d{4}\b",
     re.I,
 )
@@ -954,6 +1018,10 @@ def _crawl(church: dict, fetcher: Fetcher) -> dict:
         page = fetcher.get(link)
         if page:
             (service_pages if kind == "service" else other_pages).append(page_lines(page[1]))
+
+    every_line = [title] + home_lines + [line for lines in service_pages + other_pages for line in lines]
+    if other_state_only(church.get("state"), "\n".join(every_line)):
+        return {"status": "other-state"}
 
     # A dedicated service-times page beats the homepage's summary; between several, the
     # fullest. Schedules from different pages are never merged (one may be out of date).
@@ -1040,8 +1108,7 @@ def crawl_all(
 
 def select_targets(existing: Iterable[dict], states: Optional[Iterable[str]] = None) -> Tuple[List[dict], dict]:
     """Unclaimed churches with a website of their own that are missing a field this can
-    fill. A site listed on more than one church (counted across the whole directory, not
-    just the selected states) is left out."""
+    fill. A site listed on more than one church in `existing` is left out."""
     existing = list(existing)
     states = set(states) if states else None
     owners = Counter(site_key(c.get("website")) for c in existing)
@@ -1114,7 +1181,12 @@ def run(
     config = config or BulkImportConfig.from_env()
     session = session or requests.Session()
 
-    existing = fetch_all_existing_churches(config.server_base_url, session)
+    # With --states, only those states' churches are fetched (a few requests, not the
+    # ~1,000 the whole directory takes), so the shared-website check is within them.
+    if states:
+        existing = [c for state in states for c in fetch_all_existing_churches(config.server_base_url, session, state=state)]
+    else:
+        existing = fetch_all_existing_churches(config.server_base_url, session)
     targets, stats = select_targets(existing, states)
     if limit is not None:
         targets = targets[:limit]

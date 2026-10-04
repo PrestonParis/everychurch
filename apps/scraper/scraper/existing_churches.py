@@ -15,7 +15,7 @@ kagglehub/pandas dependencies just to get this one function.
 
 import logging
 import time
-from typing import List
+from typing import List, Optional
 
 import requests
 
@@ -49,12 +49,18 @@ def _get_with_retry(session: requests.Session, url: str, params: dict, timeout: 
     raise last_error  # type: ignore[misc]
 
 
-def fetch_all_existing_churches(base_url: str, session: requests.Session, page_size: int = DEFAULT_PAGE_SIZE) -> List[dict]:
+def fetch_all_existing_churches(
+    base_url: str, session: requests.Session, page_size: int = DEFAULT_PAGE_SIZE, state: Optional[str] = None
+) -> List[dict]:
     """Pages through GET /api/churches to build the full dedup set. Prompt 2 made
     that endpoint paginated ({content, totalPages, ...}); this also tolerates the
     older bare-array shape so callers keep working regardless of whether that
-    lands before or after this one — Phase A and B run concurrently."""
+    lands before or after this one — Phase A and B run concurrently.
+
+    `state` ("RI") fetches just that state's churches: 3 requests instead of the
+    ~1,000 the whole directory takes, for a script that only needs one state."""
     base_url = base_url.rstrip("/")
+    filters = {"state": state} if state else {}
     all_churches: List[dict] = []
     page = 0
 
@@ -65,7 +71,7 @@ def fetch_all_existing_churches(base_url: str, session: requests.Session, page_s
         # tens of thousands of rows. Confirmed live: 30s was too tight once this
         # crossed ~30k existing churches during the initial bulk import.
         response = _get_with_retry(
-            session, f"{base_url}/api/churches", params={"page": page, "size": page_size}, timeout=120
+            session, f"{base_url}/api/churches", params={"page": page, "size": page_size, **filters}, timeout=120
         )
         body = response.json()
 

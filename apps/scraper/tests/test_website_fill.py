@@ -19,6 +19,7 @@ from scraper.website_fill import (
     extract_service_times,
     main,
     mentions_name,
+    other_state_only,
     page_description,
     page_lines,
     page_links,
@@ -361,6 +362,20 @@ def test_rejected_service_lines(line):
     assert schedule([line]) == []
 
 
+def test_prayer_and_choir_only_reject_a_line_that_is_not_itself_a_service():
+    lines = [
+        "SERVICE TIMES", "SUNDAY",
+        "8 AM – Morning Prayer & Low Mass",
+        "10 AM – Solemn Mass with Choir & Organ",
+        "Prayer Gathering 9 am",
+        "SATURDAY",
+        "10 AM – Low Mass ( Requiem Mass 3rd Saturday of the month)",
+        "Vigilia Mensual 1er Viernes - Misas 8:30pm",
+        "Confessions and by appointment 4:00 pm",
+    ]
+    assert schedule(lines) == ["Sun 08:00 Mass", "Sun 10:00 Mass"]
+
+
 def test_a_range_split_over_three_lines_is_still_a_range():
     lines = ["Worship", "Sunday", "3:00 PM", "to", "3:45 PM", "Sunday service 10am"]
     assert schedule(lines) == ["Sun 10:00 Worship"]
@@ -437,6 +452,18 @@ def test_duplicate_times_are_listed_once():
     assert schedule(["Sunday Worship 10am", "Join us Sunday 10:00 AM"]) == ["Sun 10:00 Worship"]
 
 
+def test_a_place_attached_to_one_time_drops_only_that_time():
+    lines = [
+        "Mass Schedule",
+        "Saturday (Sunday Vigil) – 4pm",
+        "Sunday – 8 am, 9:15 am (St. Alexander Church), 10:30 am, 6 pm",
+        "Sunday Mass 7:00 pm, St. Mary of the Bay",
+    ]
+    assert schedule(lines, name="Saint Mary of the Bay Church") == [
+        "Sat 16:00 Mass", "Sun 08:00 Mass", "Sun 10:30 Mass", "Sun 18:00 Mass", "Sun 19:00 Mass",
+    ]
+
+
 def test_menu_items_that_look_like_places_are_not_subheadings():
     lines = ["Holy Orders", "Sacred Music Ministry", "St Vincent de Paul Society", "Contact", "Mass Times", "Sunday 10:00 am"]
     assert schedule(lines, name="Our Lady of Mercy Church") == ["Sun 10:00 Mass"]
@@ -477,6 +504,8 @@ def test_a_place_named_on_the_line_decides():
         "St. Joan of Arc – Sunday 9:00 a.m.",
         "St. Mary – Sunday 11:00 a.m.",
         "St. Mary 7:00 am – Sunday",
+        "Sunday Mass 6:00 pm, St. Alexander Church",
+        "Sunday Mass 7:30 pm (St. Alexander Church)",
         "Sunday Mass at St. Mary",
     ]
     assert schedule(lines, name=name) == ["Sat 16:00 Mass", "Sun 10:30 Mass", "Sun 11:00 Mass"]
@@ -504,6 +533,7 @@ def test_a_place_named_on_the_line_decides():
     (["Pastor John D."], None),
     (["Pastor Synodically Authorized Minister"], None),
     (["Read Pastor John Coleman’s weekly letter"], "John Coleman"),
+    (["Pastor Bible Study Training"], None),
     (["Pastor Jane Doe", "Pastor John Smith"], None),
     (["Pastor Jane Doe", "John Smith, Senior Pastor"], "John Smith"),
     (["Pastor Jane Doe", "Rev. Jane Doe, Pastor"], "Rev. Jane Doe"),
@@ -564,6 +594,7 @@ def test_description_prefers_json_ld_then_meta_then_open_graph():
     "Grace Church | Cranston | Rhode Island | Sunday Worship | Bible Study | Youth Group | Give",
     "2800 Rockwell Drive - Brownsville, Texas - 78521 - (956) 541-1480 Email us any time you like",
     "Saint Augustin Catholic Church, Newport, Rhode Island - Home page of the parish and school",
+    "Follow us for up-to-date information Facebook - StBartsChurchRI and our weekly newsletter",
     "Supercalifragilisticexpialidocious-and-also-very-long-wordwithoutanyspaces-at-all-whatsoever",
 ])
 def test_template_or_junk_descriptions_are_rejected(text):
@@ -651,6 +682,27 @@ def test_crawl_site_statuses():
     assert crawl_site(church(), FakeSession(), lambda s: None)["status"] == "unreachable"
     assert crawl_site(church(), blocked, lambda s: None)["status"] == "robots"
     assert crawl_site(church(), parked, lambda s: None)["status"] == "name-mismatch"
+
+
+def test_crawl_site_skips_a_same_named_church_in_another_state():
+    utah = HOME.replace("<h2>Join us</h2>", "<p>8892 W State Hwy, Copperton, UT 84006</p>")
+    session = FakeSession({"http://grace.example.org": utah})
+
+    assert crawl_site(church(), session, lambda s: None)["status"] == "other-state"
+
+
+@pytest.mark.parametrize("state, text, expected", [
+    ("RI", "8892 W State Hwy, Copperton, UT 84006", True),
+    ("RI", "Nestled in Copperton, Utah", True),
+    ("RI", "1 Main St, Cranston, RI 02920 | Our sister parish in Copperton, Utah", False),
+    ("RI", "Serving Cranston, Rhode Island", False),
+    ("RI", "No address anywhere", False),
+    ("RI", "Code 12, XX 12345", False),
+    (None, "Copperton, UT 84006", False),
+    ("ri", "Cranston, RI. 02920", False),
+])
+def test_other_state_only(state, text, expected):
+    assert other_state_only(state, text) is expected
 
 
 def test_crawl_site_records_an_unexpected_error_instead_of_raising():
@@ -802,6 +854,7 @@ def test_run_dry_run_sends_nothing(fetch, crawl, caplog):
     assert result["churchesToFill"] == 1
     assert crawl.call_args.args[:3] == ([EXISTING[0]], "c.jsonl", 3)
     assert "#1 Grace Community Church" in caplog.text
+    assert fetch.call_args.kwargs == {"state": "RI"}  # only the requested state is fetched
 
 
 @patch.object(website_fill, "submit_fills", side_effect=[1, 1])
