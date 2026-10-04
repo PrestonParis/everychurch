@@ -31,6 +31,13 @@ public class ClaimController {
         return claimService.requestClaim(churchId, requester, request.notes());
     }
 
+    /** Unclaims the church — its owner or a Platform Admin only (ClaimService.release). */
+    @PostMapping("/release")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void release(@PathVariable Long churchId, Authentication authentication) {
+        claimService.release(churchId, currentUser(authentication));
+    }
+
     private User currentUser(Authentication authentication) {
         String email = (String) authentication.getPrincipal();
         return userRepository.findByEmail(email)

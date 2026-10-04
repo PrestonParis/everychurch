@@ -54,6 +54,7 @@ export class ChurchProfileComponent implements OnInit {
   // fetched, or for an unclaimed church where there's no ChurchStaff row to have
   // one — canManage's unclaimed-church branch below covers that case instead).
   private readonly _myPermissions = signal<Set<ChurchPermission>>(new Set());
+  private readonly _isOwner = signal(false);
   get church(): Church | null { return this._church(); }
   get loading(): boolean { return this._loading(); }
   get error(): boolean { return this._error(); }
@@ -99,6 +100,7 @@ export class ChurchProfileComponent implements OnInit {
         next: (summaries) => {
           const mine = summaries.find((s) => s.churchId === id);
           this._myPermissions.set(new Set(mine?.permissions ?? []));
+          this._isOwner.set(mine?.isOwner ?? false);
         },
         error: () => this._myPermissions.set(new Set()),
       });
@@ -163,6 +165,20 @@ export class ChurchProfileComponent implements OnInit {
     if (this.authService.currentUser()?.role === 'PLATFORM_ADMIN') return true;
     if (!church.claimed) return false;
     return this._myPermissions().has(permission);
+  }
+
+  /** Owner or Platform Admin — who the server lets unclaim (ClaimService.release). */
+  get canRelease(): boolean {
+    if (!this.church?.claimed || !this.authService.isAuthenticated()) return false;
+    return this._isOwner() || this.authService.currentUser()?.role === 'PLATFORM_ADMIN';
+  }
+
+  /** The server has dropped every staff row on the church, so drop ours too. */
+  onReleased() {
+    const church = this.church;
+    if (church) this._church.set({ ...church, claimed: false });
+    this._myPermissions.set(new Set());
+    this._isOwner.set(false);
   }
 
   isVideo(url: string): boolean {

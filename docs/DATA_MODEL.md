@@ -96,12 +96,12 @@ Owner: `server` (`AuthService`, `PasswordResetTokenRepository`). `POST /api/auth
 | id | Long | PK |
 | church | Church | many-to-one |
 | user | User | many-to-one — the requester |
-| status | `ClaimStatus` enum | `PENDING`, `APPROVED`, `REJECTED` |
+| status | `ClaimStatus` enum | `PENDING`, `APPROVED`, `REJECTED`, `RELEASED` (was approved, later unclaimed) |
 | notes | String | evidence/justification submitted by requester |
 | decidedBy | User | nullable, the Platform Admin who approved/rejected |
 | createdAt / decidedAt | Instant | |
 
-CRUD: `POST /api/churches/{churchId}/claims` — create by any authenticated `User` (rejected if the church is already claimed, or the same user already has a `PENDING` claim on it). `GET/POST /api/admin/claims[/{id}/approve|reject]` — list/approve/reject, `PLATFORM_ADMIN` only. On approval (`ClaimService.approve`), `Church.claimed` is set `true`, a `ChurchStaff` owner row is created, and the requester's global `Role` is bumped from `MEMBER` to `CHURCH_ADMIN` if it wasn't already something higher.
+CRUD: `POST /api/churches/{churchId}/claims` — create by any authenticated `User` (rejected if the church is already claimed, or the same user already has a `PENDING` claim on it). `GET/POST /api/admin/claims[/{id}/approve|reject]` — list/approve/reject, `PLATFORM_ADMIN` only. On approval (`ClaimService.approve`), `Church.claimed` is set `true`, a `ChurchStaff` owner row is created, and the requester's global `Role` is bumped from `MEMBER` to `CHURCH_ADMIN` if it wasn't already something higher. `POST /api/churches/{churchId}/claims/release` unclaims a church — the owner or a `PLATFORM_ADMIN` only (`ClaimService.release`): `Church.claimed` goes back to `false`, every `ChurchStaff` row on the church is deleted, anyone left staffing no church drops from `CHURCH_ADMIN` back to `MEMBER`, and the approved `Claim` is marked `RELEASED`. The church can then be claimed again.
 
 ### `ChurchStaff` — *Implemented*
 `server/src/main/java/com/everychurch/server/model/ChurchStaff.java`. Per-church staff roster with fine-grained permissions — this is what "Church Admin" actually resolves against, not the global `Role`.

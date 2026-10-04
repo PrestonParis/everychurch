@@ -12,6 +12,11 @@ export class ClaimService {
     return this.http.post<Claim>(`/api/churches/${churchId}/claims`, { notes: notes.trim() || null });
   }
 
+  /** Unclaims the church — its owner giving it up, or a Platform Admin taking it back. */
+  release(churchId: number): Observable<void> {
+    return this.http.post<void>(`/api/churches/${churchId}/claims/release`, {});
+  }
+
   /** The claims the caller has submitted themselves — Settings > Church connections. */
   myClaims(): Observable<Claim[]> {
     return this.http.get<Claim[]>('/api/users/me/claims');

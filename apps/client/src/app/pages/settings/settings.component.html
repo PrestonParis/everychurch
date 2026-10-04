@@ -363,7 +363,7 @@
                           <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-parchment">
                             <span class="text-sm text-ink">{{ claim.churchName }}</span>
                             <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-                                  [class]="claim.status === 'PENDING' ? 'bg-gold/15 text-oxblood' : claim.status === 'APPROVED' ? 'bg-oxblood/10 text-oxblood' : 'bg-red-100 text-red-700'">
+                                  [class]="claim.status === 'PENDING' ? 'bg-gold/15 text-oxblood' : claim.status === 'APPROVED' ? 'bg-oxblood/10 text-oxblood' : claim.status === 'RELEASED' ? 'bg-ink/5 text-ink-muted' : 'bg-red-100 text-red-700'">
                               {{ claim.status }}
                             </span>
                           </div>

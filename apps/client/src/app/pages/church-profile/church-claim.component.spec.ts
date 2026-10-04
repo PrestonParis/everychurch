@@ -8,7 +8,7 @@ import { ChurchClaimComponent } from './church-claim.component';
 describe('ChurchClaimComponent', () => {
   let http: HttpTestingController;
 
-  function setup(opts: { authenticated: boolean; claimed?: boolean }) {
+  function setup(opts: { authenticated: boolean; claimed?: boolean; canRelease?: boolean }) {
     TestBed.configureTestingModule({
       imports: [ChurchClaimComponent],
       providers: [
@@ -22,6 +22,7 @@ describe('ChurchClaimComponent', () => {
     const fixture = TestBed.createComponent(ChurchClaimComponent);
     fixture.componentRef.setInput('churchId', 9);
     fixture.componentRef.setInput('claimed', opts.claimed ?? false);
+    fixture.componentRef.setInput('canRelease', opts.canRelease ?? false);
     fixture.detectChanges();
     return fixture;
   }
@@ -73,5 +74,35 @@ describe('ChurchClaimComponent', () => {
 
     expect(el(fixture).textContent).toContain('You already have a pending claim on this church');
     expect(button(fixture, 'Send request')).toBeTruthy(); // can retry or cancel
+  });
+
+  it('offers the owner or a Platform Admin an unclaim, behind a confirmation', async () => {
+    const fixture = setup({ authenticated: true, claimed: true, canRelease: true });
+    const released = jest.fn();
+    fixture.componentInstance.released.subscribe(released);
+
+    button(fixture, 'Unclaim this church')!.click();
+    await fixture.whenStable();
+    http.expectNone('/api/churches/9/claims/release'); // nothing sent until confirmed
+
+    button(fixture, 'Yes, unclaim')!.click();
+    await fixture.whenStable();
+    http.expectOne({ method: 'POST', url: '/api/churches/9/claims/release' }).flush(null, { status: 204, statusText: 'No Content' });
+    await fixture.whenStable();
+
+    expect(released).toHaveBeenCalled();
+  });
+
+  it('shows the server\'s reason when an unclaim is refused', async () => {
+    const fixture = setup({ authenticated: true, claimed: true, canRelease: true });
+    button(fixture, 'Unclaim this church')!.click();
+    await fixture.whenStable();
+    button(fixture, 'Yes, unclaim')!.click();
+    await fixture.whenStable();
+
+    http.expectOne('/api/churches/9/claims/release').flush({ error: "This church isn't claimed" }, { status: 409, statusText: 'Conflict' });
+    await fixture.whenStable();
+
+    expect(el(fixture).textContent).toContain("This church isn't claimed");
   });
 });

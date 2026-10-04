@@ -248,4 +248,87 @@ class ClaimAndStaffFlowTest extends AbstractIntegrationTest {
                 .content("{}"))
             .andExpect(status().isUnauthorized());
     }
+
+    private long claimAndApprove(String token, long churchId) throws Exception {
+        String claimBody = mockMvc.perform(post("/api/churches/" + churchId + "/claims")
+                .header("Authorization", "Bearer " + token)
+                .contentType("application/json")
+                .content("{}"))
+            .andExpect(status().isCreated())
+            .andReturn().getResponse().getContentAsString();
+        long claimId = objectMapper.readTree(claimBody).get("id").asLong();
+        mockMvc.perform(post("/api/admin/claims/" + claimId + "/approve")
+                .header("Authorization", "Bearer " + adminToken()))
+            .andExpect(status().isOk());
+        return claimId;
+    }
+
+    @Test
+    void ownerCanReleaseTheirChurchAndItBecomesClaimableAgain() throws Exception {
+        String ownerToken = register("release-owner@example.com", "password123");
+        long churchId = createChurch(ownerToken, "Released Church");
+        long claimId = claimAndApprove(ownerToken, churchId);
+
+        register("release-staff@example.com", "password123");
+        mockMvc.perform(post("/api/churches/" + churchId + "/staff")
+                .header("Authorization", "Bearer " + ownerToken)
+                .contentType("application/json")
+                .content("{\"email\":\"release-staff@example.com\",\"permissions\":[\"EDIT_PROFILE\"]}"))
+            .andExpect(status().isCreated());
+
+        // a stranger can't unclaim it
+        String strangerToken = register("release-stranger@example.com", "password123");
+        mockMvc.perform(post("/api/churches/" + churchId + "/claims/release")
+                .header("Authorization", "Bearer " + strangerToken))
+            .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/churches/" + churchId + "/claims/release")
+                .header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/churches/" + churchId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.claimed").value(false));
+
+        // the former owner no longer staffs it, and drops back to MEMBER
+        mockMvc.perform(get("/api/users/me/staff-churches").header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/users/me").header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.role").value("MEMBER"));
+
+        // the claim history is kept, marked RELEASED
+        mockMvc.perform(get("/api/users/me/claims").header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$[0].id").value(claimId))
+            .andExpect(jsonPath("$[0].status").value("RELEASED"));
+
+        // releasing twice is a conflict, not a silent no-op
+        mockMvc.perform(post("/api/churches/" + churchId + "/claims/release")
+                .header("Authorization", "Bearer " + ownerToken))
+            .andExpect(status().isConflict());
+
+        // and someone else can now claim it
+        mockMvc.perform(post("/api/churches/" + churchId + "/claims")
+                .header("Authorization", "Bearer " + strangerToken)
+                .contentType("application/json")
+                .content("{}"))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void platformAdminCanReleaseAnyClaimedChurch() throws Exception {
+        String ownerToken = register("adminrelease-owner@example.com", "password123");
+        long churchId = createChurch(ownerToken, "Admin Released Church");
+        claimAndApprove(ownerToken, churchId);
+
+        mockMvc.perform(post("/api/churches/" + churchId + "/claims/release")
+                .header("Authorization", "Bearer " + adminToken()))
+            .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/churches/" + churchId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.claimed").value(false));
+    }
 }

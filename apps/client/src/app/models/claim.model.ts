@@ -1,4 +1,4 @@
-export type ClaimStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ClaimStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'RELEASED';
 
 /** Matches server/.../dto/ClaimDto.java. */
 export interface Claim {
