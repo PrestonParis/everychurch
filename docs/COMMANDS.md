@@ -22,6 +22,33 @@ Quick health check (public, read-only): `curl https://everychurch-server-2749485
 
 If the Cloud Run URL ever changes, update it here, in `vercel.json`, and in [ARCHITECTURE.md](ARCHITECTURE.md) "Deployment / Hosting".
 
+### Live demo checklist
+
+`npm run check:prod` hits the API directly and through everychurch.co, wakes a cold instance, and prints the startup error if the API is down.
+
+- **The day before:** run `npm run check:prod`. After that, freeze: no server deploys, secret changes or migrations until the demo is over.
+- **About an hour before:** keep one instance always running so visitors never hit a cold start, and nothing restarts mid-demo onto a bad config:
+  ```sh
+  gcloud run services update everychurch-server --region us-east1 --min-instances 1
+  ```
+  This creates a new revision. If that fails, the old one keeps serving and you find out now, not on stage.
+- **15 minutes before:** run `npm run check:prod` again. In the browser you'll present from, click through the exact demo path and log in fresh (sessions expire after 24h).
+- **Have a fallback:** a screen recording of the demo path, in case the venue Wi-Fi or a third-party service fails.
+- **After the demo:** `--min-instances 0` to stop paying for the idle instance.
+
+### Production is down ("We couldn't load churches")
+
+Cloud Run scales to zero, so a config problem shows up only on the **next cold start**, which can be days after the change that caused it. Check `gcloud run revisions list --service everychurch-server --region us-east1` and the error from `npm run check:prod`.
+
+- `password authentication failed for user 'neondb_owner'`: check the variable name first. The server reads `DATABASE_PASSWORD`, falling back to `DB_PASSWORD`. Until 2026-10-12 it read *only* `DB_PASSWORD` while Cloud Run set only `DATABASE_PASSWORD`, so any fresh build connected with no password. If the name is right, the password itself is wrong: reset it in the Neon console (Roles → neondb_owner), then:
+  ```sh
+  printf %s 'NEW_PASSWORD' | gcloud secrets versions add everychurch-db-password --data-file=-
+  gcloud run services update everychurch-server --region us-east1 \
+    --update-secrets DATABASE_PASSWORD=everychurch-db-password:<N>,DB_PASSWORD=everychurch-db-password:<N>
+  ```
+  Use `printf %s`, not `echo`. A trailing newline becomes part of the password.
+- **Pin the secret to a numbered version, never `latest`.** With `latest`, adding a secret version silently changes what the *running* service picks up on its next cold start. A pinned version only changes when you deploy, and a bad deploy fails then and there while traffic stays on the old revision.
+
 ## Dev servers
 
 ```sh

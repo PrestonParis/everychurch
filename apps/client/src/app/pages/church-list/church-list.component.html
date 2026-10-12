@@ -285,7 +285,8 @@
       </div>
     } @else if (error()) {
       <div class="text-center py-24">
-        <p class="text-ink-muted">Could not connect to the server. Make sure the API is running.</p>
+        <p class="text-ink-muted mb-4">We couldn't load churches right now. Please try again in a moment.</p>
+        <button type="button" (click)="retrySearch()" class="text-oxblood text-sm font-medium hover:underline">Try again</button>
       </div>
     } @else if (results().length === 0) {
       <div class="text-center py-24">
