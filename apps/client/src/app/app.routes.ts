@@ -29,7 +29,6 @@ export const appRoutes: Route[] = [
   { path: 'admin/submissions', loadComponent: () => import('./pages/admin-submissions/admin-submissions.component').then((m) => m.AdminSubmissionsComponent) },
   { path: 'admin/claims', loadComponent: () => import('./pages/admin-claims/admin-claims.component').then((m) => m.AdminClaimsComponent) },
   { path: 'admin/scraper-runs', loadComponent: () => import('./pages/admin-scraper-runs/admin-scraper-runs.component').then((m) => m.AdminScraperRunsComponent) },
-  { path: 'admin/pitch', loadComponent: () => import('./pages/admin-pitch/admin-pitch.component').then((m) => m.AdminPitchComponent) },
   { path: 'admin/reports', loadComponent: () => import('./pages/admin-reports/admin-reports.component').then((m) => m.AdminReportsComponent) },
   { path: 'go', loadComponent: () => import('./pages/nearest-redirect/nearest-redirect.component').then((m) => m.NearestRedirectComponent) },
   { path: 'volunteer/field-kit', loadComponent: () => import('./pages/volunteer-field-kit/volunteer-field-kit.component').then((m) => m.VolunteerFieldKitComponent) },

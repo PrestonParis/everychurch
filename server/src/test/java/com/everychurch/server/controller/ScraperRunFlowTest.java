@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Prompt 5 (docs/PROMPTS.md): scraper run tracking. Authenticated the same way as
+ * Scraper run tracking, authenticated the same way as
  * /api/scraper/church-submissions — X-Scraper-Api-Key, not a user JWT.
  */
 @SpringBootTest

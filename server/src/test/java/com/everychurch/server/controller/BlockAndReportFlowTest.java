@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** DM blocking and the generic user/church report — both flagged as outstanding
- *  moderation work in docs/PROMPTS.md's Prompt 16 findings and ARCHITECTURE.md's
+ *  moderation work described in ARCHITECTURE.md's
  *  Chat "Known limitations". send()'s block check is exercised via a direct service
  *  call rather than a live STOMP connection — DirectChatFlowTest already establishes
  *  that a rejected send is silently dropped at the WebSocket layer for other reasons

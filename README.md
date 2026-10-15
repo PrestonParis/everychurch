@@ -33,7 +33,7 @@ flowchart LR
     Scraper --> Sources[HIFLD, Kaggle, Google Places, OSM, Wikidata, and church websites]
 ```
 
-The Angular application and Spring Boot API live in one Nx monorepo. PostgreSQL stores directory, identity, permission, and moderation data, with 23 versioned Flyway migrations; object storage holds uploaded media. The scraper tiles geographic areas, normalizes candidates, checks existing records, and submits changes through the same review boundary used by volunteers. WebSocket authorization reuses the platform's church membership and staff permission model instead of creating a separate trust path.
+The Angular application and Spring Boot API live in one Nx monorepo. PostgreSQL stores directory, identity, permission, and moderation data, with 24 versioned Flyway migrations; object storage holds uploaded media. The scraper tiles geographic areas, normalizes candidates, checks existing records, and submits changes through the same review boundary used by volunteers. WebSocket authorization reuses the platform's church membership and staff permission model instead of creating a separate trust path.
 
 ## Tech stack
 
@@ -58,7 +58,7 @@ npx nx e2e client-e2e
 npx nx test scraper
 ```
 
-The current suites include 197 backend tests, 125 frontend unit tests, and 494 scraper tests with 100% coverage, plus a three-browser public-page smoke check and three isolated end-to-end faith journeys. They cover frontend behavior, browser journeys, scraper pagination and retries, church matching, schedule extraction, and safeguards against enriching the wrong listing.
+The current suites include 202 backend tests, 122 frontend unit tests, and 494 scraper tests with 100% coverage, plus a three-browser public-page smoke check and three isolated end-to-end faith journeys. They cover frontend behavior, browser journeys, scraper pagination and retries, church matching, schedule extraction, and safeguards against enriching the wrong listing.
 
 AI-assisted development was used for implementation and review; architecture, product decisions, testing, and final code ownership remain human-directed.
 

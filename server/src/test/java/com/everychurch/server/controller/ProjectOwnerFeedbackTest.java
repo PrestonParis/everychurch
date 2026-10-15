@@ -18,7 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Covers the project-owner feedback recorded in docs/PROMPTS.md's "Prompt 16 findings":
+ * Covers project-owner authorization and validation decisions:
  * required display names, admin-only editing of unclaimed churches, the duplicate-check
  * hint, event co-hosts by name, and the service-time summary field.
  */

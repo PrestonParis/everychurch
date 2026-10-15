@@ -156,7 +156,7 @@ export class ChurchFormComponent implements OnInit {
       next: (church) => this.router.navigate(['/churches', church.id]),
       error: (err) => {
         this._saving.set(false);
-        // Editing an unclaimed church is now Platform Admin only (docs/PROMPTS.md) — a
+        // Editing an unclaimed church is Platform Admin only — a
         // 403 here is a real, expected outcome for anyone else, not just a network blip,
         // so it needs to actually say something rather than just re-enabling the button.
         this._saveError.set(
