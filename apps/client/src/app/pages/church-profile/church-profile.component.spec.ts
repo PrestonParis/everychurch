@@ -156,7 +156,7 @@ describe('ChurchProfileComponent (zoneless rendering)', () => {
     expect(text(fixture)).toContain('+ Event');
   });
 
-  it('hides the management controls from a plain logged-in user for an unclaimed church (Platform Admin only, per docs/PROMPTS.md)', async () => {
+  it('hides the management controls from a plain logged-in user for an unclaimed church (Platform Admin only)', async () => {
     const fixture = setup({ authenticated: true });
     await settle(fixture, undefined, { ...church, claimed: false });
 

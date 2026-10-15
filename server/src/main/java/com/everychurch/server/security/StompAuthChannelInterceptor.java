@@ -4,6 +4,7 @@ import com.everychurch.server.model.User;
 import com.everychurch.server.repository.UserRepository;
 import com.everychurch.server.service.DirectMessageService;
 import com.everychurch.server.service.MemberService;
+import com.everychurch.server.service.RateLimitService;
 import io.jsonwebtoken.Claims;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -17,6 +18,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Principal;
+import java.time.Duration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -51,17 +53,20 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private final UserRepository userRepository;
     private final MemberService memberService;
     private final DirectMessageService directMessageService;
+    private final RateLimitService rateLimitService;
 
     public StompAuthChannelInterceptor(
         JwtService jwtService,
         UserRepository userRepository,
         MemberService memberService,
-        DirectMessageService directMessageService
+        DirectMessageService directMessageService,
+        RateLimitService rateLimitService
     ) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.memberService = memberService;
         this.directMessageService = directMessageService;
+        this.rateLimitService = rateLimitService;
     }
 
     @Override
@@ -129,10 +134,15 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private void requireAppDestination(StompHeaderAccessor accessor) {
-        currentUser(accessor);
+        User user = currentUser(accessor);
         String destination = accessor.getDestination();
         if (destination == null || !destination.startsWith("/app/")) {
             throw new MessagingException("Messages can only be sent to /app/**");
+        }
+        RateLimitService.Decision decision = rateLimitService.tryConsume(
+            "stomp-send", Long.toString(user.getId()), 60, Duration.ofMinutes(1));
+        if (!decision.allowed()) {
+            throw new MessagingException("Message rate limit exceeded; retry later");
         }
     }
 

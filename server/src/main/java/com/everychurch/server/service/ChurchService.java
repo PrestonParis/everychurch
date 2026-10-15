@@ -107,7 +107,7 @@ public class ChurchService {
 
         // Once claimed, only the owner/staff with EDIT_PROFILE (or a Platform Admin) may edit.
         // An unclaimed church has no owner yet — that USED to mean any authenticated user
-        // could edit it, but per project-owner feedback (docs/PROMPTS.md) that's now
+        // could edit it, but per the product authorization decision that's now
         // Platform Admin only; a per-church "appointed admin" only exists once claimed
         // (ChurchStaff), so it can't apply here. Regular contributors still have a path in:
         // the ChurchSubmission review queue (volunteers propose, an admin approves).

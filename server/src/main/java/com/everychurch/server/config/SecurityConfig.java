@@ -1,5 +1,6 @@
 package com.everychurch.server.config;
 
+import com.everychurch.server.security.AbuseRateLimitFilter;
 import com.everychurch.server.security.BulkImportApiKeyFilter;
 import com.everychurch.server.security.JwtAuthenticationFilter;
 import com.everychurch.server.security.ScraperApiKeyFilter;
@@ -41,15 +42,18 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ScraperApiKeyFilter scraperApiKeyFilter;
     private final BulkImportApiKeyFilter bulkImportApiKeyFilter;
+    private final AbuseRateLimitFilter abuseRateLimitFilter;
 
     public SecurityConfig(
         JwtAuthenticationFilter jwtAuthenticationFilter,
         ScraperApiKeyFilter scraperApiKeyFilter,
-        BulkImportApiKeyFilter bulkImportApiKeyFilter
+        BulkImportApiKeyFilter bulkImportApiKeyFilter,
+        AbuseRateLimitFilter abuseRateLimitFilter
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.scraperApiKeyFilter = scraperApiKeyFilter;
         this.bulkImportApiKeyFilter = bulkImportApiKeyFilter;
+        this.abuseRateLimitFilter = abuseRateLimitFilter;
     }
 
     @Bean
@@ -123,6 +127,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
+            .addFilterBefore(abuseRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(scraperApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(bulkImportApiKeyFilter, UsernamePasswordAuthenticationFilter.class);

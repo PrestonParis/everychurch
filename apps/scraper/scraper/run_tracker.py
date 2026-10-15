@@ -6,7 +6,7 @@ REQUEST_TIMEOUT_S = 30
 
 
 class ScraperRunClient:
-    """Talks to the server's scraper run tracking endpoints (docs/PROMPTS.md
+    """Talks to the server's scraper run tracking endpoints
     Prompt 5, docs/SCRAPER.md): starts/completes a ScraperRun row around one
     pipeline.run() invocation, and picks the next region to run when none was
     given. Same X-Scraper-Api-Key service-to-service auth as SubmissionClient.

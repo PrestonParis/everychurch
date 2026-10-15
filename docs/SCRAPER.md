@@ -48,7 +48,7 @@ Each submission creates a `ChurchSubmission` row with `submittedBy = "scraper"`,
 
 ## Region-scoped runs & run tracking
 
-*Implemented (Prompt 5, Prompt 6 — see docs/PROMPTS.md)* — scraper: `scraper/regions.py`, `scraper/run_tracker.py`, `pipeline.run`'s `region` parameter, `pipeline.lambda_handler`. Server: `ScraperRun`, `ScraperRunController` (`/api/scraper/runs/**`), `AdminScraperRunController` (`/api/admin/scraper-runs/**`), `ScraperRunService`, `ScraperInvoker`/`LoggingScraperInvoker`.
+*Implemented* — scraper: `scraper/regions.py`, `scraper/run_tracker.py`, `pipeline.run`'s `region` parameter, `pipeline.lambda_handler`. Server: `ScraperRun`, `ScraperRunController` (`/api/scraper/runs/**`), `AdminScraperRunController` (`/api/admin/scraper-runs/**`), `ScraperRunService`, `ScraperInvoker`/`LoggingScraperInvoker`.
 
 **Why:** a full-CONUS sweep is already documented above as "thousands of Nearby Search calls" — far past a single Lambda invocation's 15-minute execution ceiling at real (250k+ church) scale. Runs are chunked to one US state at a time instead.
 
@@ -73,7 +73,7 @@ GET  /api/admin/scraper-runs           list all runs, most recent first
 POST /api/admin/scraper-runs/trigger   {"region": "RI"} or {} to auto-pick -> {"run": ScraperRunDto, "message": "..."}
 ```
 
-`trigger` does **not** invoke a real Lambda — none is deployed yet (see docs/PROMPTS.md Prompt 6's scope note: that needs AWS credentials and explicit sign-off, not a code-writing pass). It records a `RUNNING` `ScraperRun` via the same start path and returns a message telling a human to run the scraper locally to fulfil it. `ScraperInvoker` is the seam for a future `LambdaScraperInvoker` (`LambdaClient.invoke(...)`) to swap in later without `ScraperRunService` changing.
+`trigger` does **not** invoke a real Lambda — none is deployed yet. It records a `RUNNING` `ScraperRun` via the same start path and returns a message telling a human to run the scraper locally to fulfil it. `ScraperInvoker` is the seam for a future `LambdaScraperInvoker` (`LambdaClient.invoke(...)`) to swap in later without `ScraperRunService` changing.
 
 ## Bulk import (Kaggle "us-places-of-worship")
 

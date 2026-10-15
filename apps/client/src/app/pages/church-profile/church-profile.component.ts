@@ -154,7 +154,7 @@ export class ChurchProfileComponent implements OnInit {
    * Mirrors the server's rule (ChurchService/EventService/PostService's
    * requireCanManage-style checks) exactly: once claimed, needs this specific
    * permission (or Platform Admin); an unclaimed listing has no owner yet, so — per
-   * project-owner feedback (docs/PROMPTS.md) — only a Platform Admin may touch it at
+   * product authorization rules — only a Platform Admin may touch it at
    * all, regardless of which permission is being asked about (there's no ChurchStaff
    * row to have one). Everyone else still has a path in: the ChurchSubmission review
    * queue for volunteers.
