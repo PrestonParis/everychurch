@@ -1,5 +1,7 @@
 # EveryChurch
 
+[![CI](https://github.com/PrestonParis/everychurch/actions/workflows/ci.yml/badge.svg)](https://github.com/PrestonParis/everychurch/actions/workflows/ci.yml)
+
 EveryChurch is a searchable church directory and collaboration platform that helps people understand Christian traditions, find nearby communities, and keep church information accurate.
 
 [**Live site: everychurch.co**](https://everychurch.co) · [Architecture](docs/ARCHITECTURE.md) · [Data pipeline](docs/SCRAPER.md)
@@ -11,8 +13,10 @@ EveryChurch is a searchable church directory and collaboration platform that hel
 - Search and filter standardized church profiles by location, tradition, and community.
 - Compare Christian traditions and explore church service times, contact details, events, sermons, and media.
 - Let churches claim listings and delegate fine-grained staff permissions.
+- Let church owners release a claim cleanly when leadership changes.
 - Route volunteer submissions and scraped updates through an administrator-reviewed verification queue.
 - Support member-only church chat with WebSocket delivery and server-side membership checks.
+- Expire stale sessions in the client and protect live demos from accidental writes.
 - Discover and enrich listings through a resumable Python pipeline that can run locally or in AWS Lambda.
 
 ## Architecture
@@ -26,10 +30,10 @@ flowchart LR
     Volunteers[Volunteer submissions] --> Queue
     Queue --> API
     API --> Storage[Object storage]
-    Scraper --> Sources[Google Places and church websites]
+    Scraper --> Sources[HIFLD, Kaggle, Google Places, OSM, Wikidata, and church websites]
 ```
 
-The Angular application and Spring Boot API live in one Nx monorepo. PostgreSQL stores directory, identity, permission, and moderation data; object storage holds uploaded media. The scraper tiles geographic areas, normalizes candidates, checks existing records, and submits changes through the same review boundary used by volunteers. WebSocket authorization reuses the platform's church membership and staff permission model instead of creating a separate trust path.
+The Angular application and Spring Boot API live in one Nx monorepo. PostgreSQL stores directory, identity, permission, and moderation data, with 23 versioned Flyway migrations; object storage holds uploaded media. The scraper tiles geographic areas, normalizes candidates, checks existing records, and submits changes through the same review boundary used by volunteers. WebSocket authorization reuses the platform's church membership and staff permission model instead of creating a separate trust path.
 
 ## Tech stack
 
@@ -54,7 +58,9 @@ npx nx e2e client-e2e
 npx nx test scraper
 ```
 
-The test suites cover frontend behavior, browser journeys, scraper pagination and retries, church matching, schedule extraction, and safeguards against enriching the wrong listing.
+The current suites include 197 backend tests, 125 frontend unit tests, and 494 scraper tests with 100% coverage, plus a three-browser public-page smoke check and three isolated end-to-end faith journeys. They cover frontend behavior, browser journeys, scraper pagination and retries, church matching, schedule extraction, and safeguards against enriching the wrong listing.
+
+AI-assisted development was used for implementation and review; architecture, product decisions, testing, and final code ownership remain human-directed.
 
 ## Running locally
 
