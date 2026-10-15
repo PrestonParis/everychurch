@@ -1,14 +1,18 @@
 package com.everychurch.server.controller;
 
+import com.everychurch.server.dto.BulkFillRequest;
+import com.everychurch.server.dto.BulkFillResponse;
 import com.everychurch.server.dto.BulkImportRequest;
 import com.everychurch.server.dto.BulkImportResponse;
 import com.everychurch.server.dto.ChurchDto;
+import com.everychurch.server.dto.NormalizeCaseResponse;
 import com.everychurch.server.service.BulkImportStatusService;
 import com.everychurch.server.service.ChurchService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -39,7 +43,7 @@ public class BulkImportController {
         int created = 0;
         try {
             for (ChurchDto proposed : request.churches()) {
-                churchService.create(proposed);
+                churchService.createImported(proposed);
                 created++;
             }
         } catch (RuntimeException e) {
@@ -51,5 +55,34 @@ public class BulkImportController {
         }
         bulkImportStatusService.recordBatch(request.source(), request.totalNew(), request.churches().size(), created);
         return new BulkImportResponse(created);
+    }
+
+    /**
+     * Backfills blank fields on churches that already exist (osm_fill.py) — same
+     * trusted key as importBatch, but never creates a row and never overwrites a
+     * non-blank value or touches a claimed church; see ChurchService.fillBlanks.
+     * Deliberately not reported through BulkImportStatusService: that drives the
+     * onboarding screen's "churches loading" progress, and a fill adds no churches.
+     */
+    @PostMapping("/fill")
+    public BulkFillResponse fillBatch(@RequestBody BulkFillRequest request) {
+        int updated = 0;
+        for (ChurchDto proposed : request.churches()) {
+            if (churchService.fillBlanks(proposed)) {
+                updated++;
+            }
+        }
+        return new BulkFillResponse(updated);
+    }
+
+    /**
+     * One batch of the one-time ALL-CAPS backfill (ChurchService.normalizeCase). Call
+     * with afterId=0, then each response's nextAfterId until it comes back null.
+     */
+    @PostMapping("/normalize-case")
+    public NormalizeCaseResponse normalizeCase(
+            @RequestParam(defaultValue = "0") long afterId,
+            @RequestParam(defaultValue = "500") int limit) {
+        return churchService.normalizeCase(afterId, Math.max(1, Math.min(limit, 1000)));
     }
 }

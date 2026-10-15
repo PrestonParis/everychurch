@@ -112,13 +112,118 @@ POST /api/admin/scraper-runs/trigger   {"region": "RI"} or {} to auto-pick -> {"
 
 **Reuses, doesn't duplicate:** `dedupe_within_batch` and `submit_batch` are imported directly from `bulk_import.py` rather than copied — both are generic over the `{name, zipCode}`-keyed `ChurchDto` shape, and this module already imports `bulk_import` for them (see that module's docstring for why `pipeline.py`, unlike this one, deliberately avoids that import — this is a manual one-time script too, so the same Lambda-payload-weight concern doesn't apply).
 
+## OpenStreetMap import (2026-09-30)
+
+*Implemented* — `scraper/osm_import.py`, same trusted `POST /api/scraper/bulk-import` endpoint and `BULK_IMPORT_API_KEY` as the other two imports. Run manually, **after** `hifld_import`: `python -m scraper.osm_import`.
+
+**Why:** HIFLD only has congregations that filed with the IRS (see "Known ceiling" above). OSM is mapped by people on the ground, not IRS-gated, so it reaches small and independent churches HIFLD never will. Free, no API key: one Overpass query per state (`amenity=place_of_worship` + `religion=christian`, `out center tags`), 51 queries total with a pause between each, retried on the public instance's routine 429/504s.
+
+**What a Rhode Island probe showed (555 elements):** 96% named, 61% `denomination`-tagged, but only 37% carry `addr:city`/`addr:postcode`. That drives the two design decisions below.
+
+**Spatial dedup, not name+ZIP.** With most rows ZIP-less, name+ZIP would collapse every ZIP-less "First Baptist Church" in the country into one. Every OSM row and every HIFLD/Kaggle row has coordinates, so `_is_same_church` matches on name similarity scaled by distance: anything within 30m is the same place; a close name match (≥0.85, or one name containing the other) within 1km; a looser one (≥0.6) only within 150m. The 1km allowance exists because HIFLD points are geocoded from the IRS filing address, which is sometimes a pastor's house or PO box rather than the building. **Order matters:** run HIFLD first, or OSM's sparser rows get imported for churches HIFLD would have supplied with a full address.
+
+**City fill.** The directory's city search is a text match on `city`, so a blank city makes a church invisible to it (Near Me still works — that's coordinate-based). `_fill_city` borrows the city of the nearest known church in the same state within 1.5km. ZIP is deliberately not borrowed — ZIP boundaries are much finer, so a neighbor's is wrong far more often.
+
+**Filtering:** unnamed elements and roadside shrines/crosses are dropped, plus religious houses and institutional chapels by name (monastery, convent, school, hospital, cemetery, a name ending in "Home", …). Unlike HIFLD's list, "college"/"university"/"camp" are not excluded — in OSM they're place names ("College Park Baptist Church").
+
+**Licensing (ODbL):** the client must show "© OpenStreetMap contributors" wherever OSM-sourced churches appear, and the church table is covered by ODbL share-alike.
+
+## OpenStreetMap backfill (2026-10-01)
+
+*Implemented* — `scraper/osm_fill.py` → `POST /api/scraper/bulk-import/fill` (same `BULK_IMPORT_API_KEY`). Run manually after the imports:
+
+```sh
+python -m scraper.osm_fill --dry-run --cache osm_elements.json   # match + report + 25 sample fills, sends nothing
+python -m scraper.osm_fill --cache osm_elements.json             # reuses the download, sends the fills
+```
+
+**Why:** the import dropped every OSM church that matched an existing HIFLD/Kaggle row — and with it the website/phone its mapper had tagged. HIFLD has no phone or website column, so those rows are blank. This matches each OSM church to its existing row and fills website, phone, email, Facebook/Instagram/YouTube, denomination, and service times (parsed from the `service_times` tag; anything beyond simple `Su 08:00,10:30; Sa 17:00` rules is skipped whole, never half-parsed).
+
+**Stricter matching than the import's dedup** — a wrong fill puts another church's website on this one, so proximity alone (the import's 30m rule) never counts; there must be a name match (see the module docstring for the tiers). Conflicting values from two OSM elements on one church are dropped.
+
+**Never overwrites.** `ChurchService.fillBlanks` only sets blank fields, adds service times only when the church has none, never touches name/state/coordinates, and skips claimed churches. Safe to re-run.
+
+**Expected yield (Rhode Island probe, 530 OSM churches):** 155 with a website, 144 a phone, 297 a denomination, but only 26 with `service_times` (23 parseable). This fills contact info well; service times come from the website crawl below.
+
+## Wikidata backfill (2026-10-01)
+
+*Implemented* — `scraper/wikidata_fill.py`, same `/fill` endpoint, matching (`osm_fill.match_known`) and blanks-only/never-claimed guarantees as the OSM backfill. Run after `osm_fill` (OSM's values win wherever both have one, simply by getting there first):
+
+```sh
+python -m scraper.wikidata_fill --dry-run
+python -m scraper.wikidata_fill
+```
+
+**What it adds:** official website, denomination, Facebook/Instagram/YouTube, phone, email, and a photo (`imageUrl`) — for *notable* churches only (~11.9k US church buildings with coordinates). A 1,500-item live sample had something usable on 636: 313 websites, 271 denominations, 230 photos. A property with two values (two websites, two phones) is skipped rather than guessed.
+
+**Querying:** the Wikidata Query Service kills queries at 60s. "Every US church" only finishes in one join order (church-building subclasses → instances → US), forced with `hint:optimizer "None"` (~10s, ids + coordinates only); details follow in 500-id batches. No API key, no rate-limit account.
+
+**Licensing — photos are not CC0.** Wikidata's *data* is CC0, but photos live on Wikimedia Commons, and ~70% need attribution (mostly CC BY-SA). The client has nowhere to show a photo credit, so only images Commons marks `AttributionRequired=false` (CC0 / public domain) are used, as 320px thumbnails (the profile shows an 80px avatar). Adding a credit line to the client would unlock the rest.
+
+**No 8km "misplaced" fallback:** that rule needs the item's state, and Wikidata's comes from a P131 location chain that's too slow to query nationwide — so Wikidata matching is the within-1km name-match tiers only.
+
+## Denomination backfill from names (2026-10-03)
+
+*Implemented* — `scraper/denomination_fill.py`, same `/fill` endpoint and blanks-only/never-claimed guarantees. Labels a church with a blank denomination from its own name, using the HIFLD import's ordered name patterns (`hifld_import._DENOMINATION_NAME_PATTERNS`):
+
+```sh
+python -m scraper.denomination_fill --dry-run   # report + 25 sample fills, sends nothing
+python -m scraper.denomination_fill
+```
+
+The patterns now cover the bodies the first pass missed, bucketed the same way as `bulk_import.DENOMINATION_CODE_MAP`: Nazarene, C&MA, Vineyard and Calvary Chapel go to Evangelical; Church of God in Christ / of Prophecy, Apostolic and Foursquare go to Pentecostal; Wesleyan and AME/CME go to Methodist; Brethren, Mennonite, Reformed, UCC, Disciples and Quaker go to Other. Spanish names are covered too (Bautista, Metodista, Asamblea de Dios, ...). Deliberately left blank as ambiguous: a plain "Church of God" (Cleveland is Pentecostal, Anderson is not), "Iglesia de Dios", "Iglesia de Cristo" and Spanish "evangélica" (usually just "Protestant"). Order matters and is documented in the code, e.g. "African Methodist Episcopal" is Methodist and "United Church of Christ" is not Church of Christ. A name that matches nothing stays blank.
+
+**Fixed with it (2026-10-03):** the old patterns labelled "United Church of Christ" congregations as Church of Christ. `V21__relabel_united_church_of_christ.sql` moves those to Other. The "Church of Christ" search filter also never matched its own label (it looked only for a raw `COC` code), so it returned nothing and those churches showed under Other. `ChurchRepository.search` now matches the label.
+
+## Capitalization (2026-10-03)
+
+HIFLD files every name, street and city in capitals. `NameCase` (server) gives them ordinary capitalization: "ST JAMES AME CHURCH OF THE VALLEY" becomes "St James AME Church of the Valley", and "920 3RD ST SE" becomes "920 3rd St SE". Acronyms (AME, LDS, PO, NE, Roman numerals) and a trailing state code stay upper-case. Only a value with no lowercase letter is touched; anything mixed-case was cased by a person or a better source. Claimed churches are skipped.
+
+- New bulk imports are fixed on the way in (`ChurchService.createImported`).
+- Existing rows: `POST /api/scraper/bulk-import/normalize-case?afterId=0&limit=1000` (bulk-import key) fixes one id-ordered batch and returns `{scanned, updated, nextAfterId}`. Call again with `nextAfterId` until it is null. Idempotent.
+- Reverting is exact, since every converted value was all-caps: `UPDATE churches SET name = UPPER(name), ...`.
+
+## Website crawl backfill (2026-10-02)
+
+*Implemented* — `scraper/website_fill.py`, same `/fill` endpoint and blanks-only/never-claimed guarantees as the other backfills. Fills **service times, pastor and description** by reading each church's own website. Free (no API key, no per-call cost), unlike Places enrichment. Run it **after** `osm_fill` and `wikidata_fill`, since it only visits churches that already have a website:
+
+```sh
+python -m scraper.website_fill --dry-run --cache website_crawl.jsonl --states RI   # crawl + report + 25 sample fills
+python -m scraper.website_fill --cache website_crawl.jsonl                         # reuses the crawl, sends the fills
+```
+
+`--cache` appends one JSON line per church as it goes. An interrupted run resumes where it stopped, and the real run reuses a dry run's crawl. A church whose website has changed since is crawled again. `--workers` (default 16) is how many sites are crawled at once; `--limit` caps a trial run. With `--states`, only those states' churches are fetched from the API (3 requests for RI instead of ~1,000 for the whole directory, which timed out on the first RI run), so the shared-website check covers those states only.
+
+**What it reads:** the homepage plus up to 4 same-site pages picked by link text/URL: two about services ("Mass Times", "Worship", "Plan a Visit") and two about the pastor ("Our Pastor", "Staff", "About"). A dedicated service-times page wins over the homepage; schedules from different pages are never merged.
+
+**Service times — precision over recall.** A time counts only when its line names a service ("Sunday Worship 9 & 10:30 AM", "Saturday Vigil 5pm") or is a bare "Sunday 10:00 am" under a heading that does. It needs an am/pm (or 24h); a bare "10:30" is too ambiguous. Rejected:
+- office hours, Sunday School/classes, confession/adoration/rosary, prayer meetings and meals;
+- dated events ("Oct 4"), ranges ("9am-2pm"), holiday/summer/Lent schedules, monthly ("1st Sunday") and relative ("after the 10am service") times, TV/cable broadcasts.
+
+A "Sunday" heading carries down to the bare times under it. Two-column layouts (labels in one block, times in the next) are rejected outright if any label is excluded. Some sites list several churches (a merged parish), either under subheadings ("St. Mary of the Assumption") or inline ("10:30am @ St. Mary"). There, only the times placed at *this* church count. A schedule with no Saturday/Sunday service is dropped as probably partial. Type is Mass for Catholic churches or "Mass" wording, Bible Study when the line says so, otherwise Worship. A language named next to a time ("9am English, 11am Spanish") is kept.
+
+**Pastor:** "Pastor Jane Doe", "Rev. John Smith, Senior Pastor", or a staff card (name and "Senior Pastor" on adjacent lines; the page's layout decides above vs. below). Associate/youth/music/etc. pastors never count. Two different lead-pastor names means none, not a guess ("Senior/Lead Pastor" breaks a tie).
+
+**Description:** the site's own JSON-LD / meta / OpenGraph description, if it reads like one: not a builder template ("Just another WordPress site"), not truncated "...", not a phone/email/address line, not a "A | B | C" title.
+
+**Guards against filling the wrong church:**
+- the homepage must mention the church's name, so lapsed domains now showing a parking page are skipped;
+- if every address on the site is in another state, it's a same-named church elsewhere and is skipped. First RI run: Immaculate Conception, Cranston was tagged in OSM with the Copperton, Utah parish's site;
+- a website shared by several churches (diocese, denomination or national site) is skipped for all of them;
+- a description found on more than one church's site is dropped as boilerplate;
+- social/profile "websites" (Facebook, Instagram, Linktree, jw.org, ...) are never crawled.
+
+**Polite crawling:** honest User-Agent (`everychurch-website-fill/1.0 (+https://everychurch.co)`), robots.txt honoured. A robots.txt that errors is treated as disallow-all. A Crawl-delay is honoured, and above 10s only the homepage is read. One request at a time per site, with a 1s pause. HTML only, pages capped at 2MB.
+
+**Yield (150 random OSM church websites nationwide, live, 2026-10-02):** 120 reachable (14 down, 10 blocked by robots.txt or a 403, 6 failed the name check). Of the 150: service times 49%, pastor 28%, description 35%. 150 sites took 75s at 16 workers. The ~26k OSM church websites nationwide would take about 3.5 hours (more once Wikidata websites are in). Several rounds of hand-checking against the live pages (RI, MA, TX, OH, GA, NY, PA, IL, CA, FL, NC, WA, MI, VA, MN) drove the rules above. Known gaps: JavaScript-only sites render no text, schedules split into image/PDF bulletins are skipped, and a Saturday-morning daily Mass satisfies the "has a weekend service" check.
+
 ## Local development
 
 ```sh
 npx nx test scraper        # pytest — scraper/ is fully covered (--cov-fail-under=100)
 ```
 
-Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`; for bulk import only: `BULK_IMPORT_API_KEY` (plus optional `KAGGLE_USERNAME`/`KAGGLE_KEY`).
+Environment variables (see `.env.example`): `GOOGLE_PLACES_API_KEY`, `SCRAPER_API_KEY`, `SERVER_BASE_URL`, `SCRAPER_SEARCH_RADIUS_M`; for bulk import only: `BULK_IMPORT_API_KEY` (plus optional `KAGGLE_USERNAME`/`KAGGLE_KEY`). Against production, `SERVER_BASE_URL` is the Cloud Run API (`https://everychurch-server-274948593192.us-east1.run.app`), not the everychurch.co website — see [COMMANDS.md](COMMANDS.md) "Production URLs".
 
 The Lambda entry point is `scraper.index.lambda_handler`, which delegates to `pipeline.run()` (discover → dedup → enrich → submit). Locally:
 

@@ -33,6 +33,7 @@ bulk_import.py — run manually:
 """
 
 import logging
+import re
 import time
 from typing import Callable, List, Optional
 
@@ -102,32 +103,61 @@ _EXCLUDE_NAME_KEYWORDS = (
 _INCLUDE_NAME_KEYWORDS = (
     "church", "chapel", "cathedral", "parish", "ministries", "ministry",
     "congregation", "fellowship", "tabernacle", "basilica",
+    # Real congregations confirmed missed by the list above in a 2026-09-30 dry run
+    # against the live service (76k rows failed only the include check) — e.g.
+    # "EMMANUEL ASSEMBLY OF GOD", "IGLESIA BETHESDA INC", "MINISTERIO APOSTOLICO ...",
+    # "PISCATAQUIS RIVER CHRISTIAN CENTER", "LITTLE HOUSE OF PRAYER INC". Spanish and
+    # Portuguese congregations essentially never say "church" in their filed name.
+    "assembly of god", "iglesia", "ministerio", "igreja", "christian center",
+    "house of prayer",
 )
 
 # Best-effort denomination guess from the organization's own filed name — there is no
-# denom/cath/prot column here at all (unlike the Kaggle mirror). Each keyword maps to
-# exactly one DENOMINATIONS label (church.model.ts), so match order doesn't affect
-# correctness; first match wins for the (currently nonexistent) case of two keywords in
-# one name.
-_DENOMINATION_NAME_KEYWORDS = (
-    ("catholic", "Catholic"),
-    ("orthodox", "Eastern Orthodox"),
-    ("baptist", "Baptist"),
-    ("church of christ", "Church of Christ"),
-    ("episcopal", "Episcopal/Anglican"),
-    ("anglican", "Episcopal/Anglican"),
-    ("latter-day", "Latter-day Saint (LDS)"),
-    ("mormon", "Latter-day Saint (LDS)"),
-    ("lutheran", "Lutheran"),
-    ("methodist", "Methodist"),
-    ("pentecostal", "Pentecostal / Assembly of God"),
-    ("assembly of god", "Pentecostal / Assembly of God"),
-    ("presbyterian", "Presbyterian"),
-    ("adventist", "Seventh-day Adventist"),
-    ("non-denominational", "Non-denominational"),
-    ("nondenominational", "Non-denominational"),
-    ("evangelical", "Evangelical"),
-)
+# denom/cath/prot column here at all (unlike the Kaggle mirror). Each pattern maps to one
+# DENOMINATIONS label (church.model.ts), using the same buckets as bulk_import.py's
+# DENOMINATION_CODE_MAP (Nazarene/C&MA/Vineyard → Evangelical; Church of God, Apostolic,
+# Foursquare, COGIC → Pentecostal; Wesleyan, AME/CME → Methodist; Brethren, Mennonite,
+# Reformed, UCC, Disciples, Quaker → Other), so a name-matched row and a code-mapped one
+# agree. A None label leaves the church blank: its words would otherwise hit a wrong bucket.
+#
+# Order matters — the first match wins, and many real names contain another body's words:
+#   "African Methodist Episcopal" is Methodist, not Episcopal;
+#   "United Church of Christ" is Congregational (Other), not Church of Christ;
+#   "Reformed Presbyterian" is Presbyterian, not Reformed;
+#   "New Apostolic" and "Apostolic Christian" are their own bodies, not Pentecostal;
+#   "Church of God (Seventh Day)" is Sabbatarian, not Pentecostal;
+#   "Evangelical Lutheran", "Evangelical Free" etc. take the more specific label.
+# Deliberately not matched, as too ambiguous to label: a plain "Church of God" (Cleveland,
+# TN is Pentecostal; Anderson, IN is not), "Iglesia de Dios", "Iglesia de Cristo" (often
+# not the Churches of Christ), and Spanish "evangélica" (usually just "Protestant").
+# Patterns match whole words (\b) on the lowercased name, so "ame" never hits "James".
+_DENOMINATION_NAME_PATTERNS = tuple((re.compile(pattern), label) for pattern, label in (
+    (r"\barmenian apostolic\b|\bassyrian\b", None),  # Oriental/Assyrian bodies: no honest bucket
+    (r"\bunited church of christ\b|\bucc\b", "Other"),
+    (r"\bnew apostolic\b|\bapostolic christian\b", "Other"),
+    (r"\bchurch of god\b.*\bseventh[- ]day\b|\bseventh[- ]day church of god\b"
+     r"|\biglesia de dios\b.*\bs[eé]ptimo d[ií]a\b", "Other"),
+    (r"\bcatholic\b|\bcat[oó]lica\b", "Catholic"),
+    (r"\borthodox\b|\bortodoxa\b", "Eastern Orthodox"),
+    (r"\blatter[- ]day\b|\bmormon\b", "Latter-day Saint (LDS)"),
+    (r"\badventist\b|\badventista\b", "Seventh-day Adventist"),
+    (r"\bmethodist\b|\bmetodista\b|\bwesleyan\b|\ba\.? ?m\.? ?e\.?( ?z\.?)?\b|\bc\.? ?m\.? ?e\.?\b",
+     "Methodist"),
+    (r"\blutheran\b|\bluterana\b", "Lutheran"),
+    (r"\bpresbyterian\b|\bpresbiteriana\b", "Presbyterian"),
+    (r"\bbaptist\b|\bbautista\b|\bbatista\b", "Baptist"),
+    (r"\bepiscopal\b|\banglican\b", "Episcopal/Anglican"),
+    (r"\bchurch(es)? of christ\b", "Church of Christ"),
+    (r"\bpentecostal\b|\bassembl(y|ies) of god\b|\basamblea de dios\b|\bfoursquare\b"
+     r"|\bchurch of god (in christ|of prophecy|of the apostolic faith)\b|\bcogic\b|\bapost[oó]lic[oa]?\b",
+     "Pentecostal / Assembly of God"),
+    (r"\bnon-?denominational\b", "Non-denominational"),
+    (r"\bnazarene\b|\bnazareno\b|\bchristian (and|&) missionary alliance\b|\balliance church\b"
+     r"|\bvineyard\b|\bcalvary chapel\b|\bevangelical\b",
+     "Evangelical"),
+    (r"\bbrethren\b|\bmennonite\b|\bamish\b|\breformed\b|\bcongregational\b"
+     r"|\bdisciples of christ\b|\bquaker\b|\bfriends meeting\b|\bunitarian\b", "Other"),
+))
 
 
 def _clean(value) -> Optional[str]:
@@ -160,8 +190,8 @@ def _denomination_from_name(name: Optional[str]) -> Optional[str]:
     if not name:
         return None
     lower = name.lower()
-    for keyword, denomination in _DENOMINATION_NAME_KEYWORDS:
-        if keyword in lower:
+    for pattern, denomination in _DENOMINATION_NAME_PATTERNS:
+        if pattern.search(lower):
             return denomination
     return None
 
@@ -175,6 +205,14 @@ def is_church(row: dict) -> bool:
     if any(keyword in name for keyword in _EXCLUDE_NAME_KEYWORDS):
         return False
     return any(keyword in name for keyword in _INCLUDE_NAME_KEYWORDS)
+
+
+def has_coordinates(row: dict) -> bool:
+    """Rows without coordinates are skipped outright, not sent coordinate-less: the
+    server falls back to the paid Google Geocoding API for any church created without
+    lat/lng (ChurchService.applyDto), and at this dataset's volume that fallback is real
+    money. HIFLD already geocodes nearly every row, so this loses very little."""
+    return row.get("X") is not None and row.get("Y") is not None
 
 
 def to_church_dto_shape(row: dict) -> dict:
@@ -295,8 +333,9 @@ def run(
 
     raw_records = fetch_all_records(session)
     church_records = [r for r in raw_records if is_church(r)]
+    geocoded_records = [r for r in church_records if has_coordinates(r)]
 
-    mapped = [to_church_dto_shape(r) for r in church_records]
+    mapped = [to_church_dto_shape(r) for r in geocoded_records]
     deduped = dedupe_within_batch(mapped)
 
     existing = fetch_all_existing_churches(config.server_base_url, session)
@@ -314,6 +353,7 @@ def run(
     result = {
         "totalRecords": len(raw_records),
         "churchRecords": len(church_records),
+        "withCoordinates": len(geocoded_records),
         "afterInternalDedup": len(deduped),
         "new": len(new_churches),
         "created": created,

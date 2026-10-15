@@ -11,6 +11,7 @@ import { FollowService } from '../../services/follow.service';
 import { ChurchStaffService } from '../../services/church-staff.service';
 import { ClaimService } from '../../services/claim.service';
 import { FaithService } from '../../services/faith.service';
+import { ThemePreference, ThemeService } from '../../services/theme.service';
 import { Church, DENOMINATIONS } from '../../models/church.model';
 import { Claim } from '../../models/claim.model';
 import { MyProfile, ProfileVisibility } from '../../models/user.model';
@@ -104,6 +105,12 @@ export class SettingsComponent implements OnInit {
 
   // --- Preferences tab ---
   savedQuizCount = signal<number | null>(null);
+  protected themeService = inject(ThemeService);
+  readonly themeOptions: { id: ThemePreference; label: string }[] = [
+    { id: 'system', label: 'System' },
+    { id: 'light', label: 'Light' },
+    { id: 'dark', label: 'Dark' },
+  ];
 
   constructor() {
     this.usernameCheck

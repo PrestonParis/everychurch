@@ -17,27 +17,33 @@
     <form [formGroup]="form" (ngSubmit)="submit()" class="space-y-4">
       @if (mode === 'register') {
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-widest text-ink-muted mb-1.5">Display name</label>
-          <input formControlName="displayName" type="text" autocomplete="name" placeholder="What other members will see"
+          <label for="auth-display-name" class="block text-xs font-semibold uppercase tracking-widest text-ink-muted mb-1.5">Display name</label>
+          <input id="auth-display-name" formControlName="displayName" type="text" autocomplete="name" placeholder="What other members will see"
                  class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm text-ink placeholder:text-ink-muted/70 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent" />
+          @if (showInvalid('displayName')) {
+            <p class="mt-1.5 text-xs text-red-700">Enter a display name.</p>
+          }
         </div>
       }
 
       <div>
-        <label class="block text-xs font-semibold uppercase tracking-widest text-ink-muted mb-1.5">Email</label>
-        <input formControlName="email" type="email" autocomplete="email"
+        <label for="auth-email" class="block text-xs font-semibold uppercase tracking-widest text-ink-muted mb-1.5">Email</label>
+        <input id="auth-email" formControlName="email" type="email" autocomplete="email" [attr.aria-invalid]="showInvalid('email')"
                class="w-full px-3 py-2 rounded-lg border border-hairline bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent" />
+        @if (showInvalid('email')) {
+          <p class="mt-1.5 text-xs text-red-700">Enter a valid email address.</p>
+        }
       </div>
 
       <div>
         <div class="flex items-baseline justify-between mb-1.5">
-          <label class="block text-xs font-semibold uppercase tracking-widest text-ink-muted">Password</label>
+          <label for="auth-password" class="block text-xs font-semibold uppercase tracking-widest text-ink-muted">Password</label>
           @if (mode === 'login') {
             <a routerLink="/forgot-password" class="text-xs text-oxblood font-medium hover:underline">Forgot password?</a>
           }
         </div>
         <div class="relative">
-          <input formControlName="password" [type]="showPassword ? 'text' : 'password'"
+          <input id="auth-password" formControlName="password" [attr.aria-invalid]="showInvalid('password')" [type]="showPassword ? 'text' : 'password'"
                  [autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
                  class="w-full px-3 py-2 pr-10 rounded-lg border border-hairline bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent" />
           <button type="button" (click)="toggleShowPassword()"
@@ -55,13 +61,30 @@
             }
           </button>
         </div>
+        @if (showInvalid('password')) {
+          <p class="mt-1.5 text-xs text-red-700">
+            {{ mode === 'register' ? 'Use at least 8 characters.' : 'Enter your password.' }}
+          </p>
+        } @else if (mode === 'register') {
+          <p class="mt-1.5 text-xs text-ink-muted">At least 8 characters.</p>
+        }
       </div>
 
       @if (error) {
-        <p class="text-sm text-red-700">{{ error }}</p>
+        <div role="alert" class="flex items-start gap-2.5 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-700">
+          <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+          </svg>
+          <p>
+            {{ error }}
+            @if (mode === 'login' && error.startsWith('Incorrect')) {
+              <a routerLink="/forgot-password" class="font-medium underline">Reset your password</a>
+            }
+          </p>
+        </div>
       }
 
-      <button type="submit" [disabled]="form.invalid || submitting"
+      <button type="submit" [disabled]="submitting"
               class="w-full py-2.5 rounded-lg bg-oxblood text-white text-sm font-semibold hover:bg-oxblood-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
         {{ submitting ? 'Please wait…' : (mode === 'register' ? 'Create account' : 'Log in') }}
       </button>

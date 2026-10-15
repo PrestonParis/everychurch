@@ -357,7 +357,8 @@
 
           <!-- Claim: how an unclaimed listing gets an owner — kept last, after the
                information a visitor actually came for. -->
-          <app-church-claim [churchId]="church.id!" [claimed]="church.claimed === true" />
+          <app-church-claim [churchId]="church.id!" [claimed]="church.claimed === true"
+                            [canRelease]="canRelease" (released)="onReleased()" />
 
         </div>
       </div>

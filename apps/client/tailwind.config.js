@@ -23,11 +23,11 @@ module.exports = {
   ],
   theme: {
     extend: {
-      // Each value reads a CSS custom property that flips under
-      // @media (prefers-color-scheme: dark) — see styles.scss. That's what makes
-      // every bg-parchment/text-ink/bg-oxblood/etc. usage across the app switch
-      // automatically with the OS preference, with no per-component dark: variant
-      // needed.
+      // Each value reads a CSS custom property that flips to its dark value under
+      // @media (prefers-color-scheme: dark) or <html data-theme="dark"> (the
+      // Settings override) — see styles.scss. That's what makes every
+      // bg-parchment/text-ink/bg-oxblood/etc. usage across the app switch
+      // automatically, with no per-component dark: variant needed.
       colors: {
         parchment: withOpacity('--color-parchment'),
         surface: withOpacity('--color-surface'),

@@ -52,8 +52,8 @@ public class FaithEvaluationService {
             }
         }
         String guidance=request.answers().values().stream().noneMatch(a->a.importance()>0 && !a.option().equals("unknown"))?
-            "You have not selected any weighted beliefs yet. Explore the traditions or answer a few more questions; no alignment can be inferred.":
-            "Alignment compares your answers with published statements. Coverage shows what is known; the range reflects missing information. It is not a probability of religious identity or permission to receive Communion.";
+            "You haven't answered enough questions for us to compare yet. Answer a few more, or read about the traditions below.":
+            "Here's how your answers line up with what each tradition and church has said it believes. When one hasn't said where it stands on something you answered, that topic adds nothing to its score.";
         return new Result(catalog.version(),catalog.rulesVersion(),Instant.now().toString(),guidance,traditions,best.stream().sorted(order()).toList(),evaluated,location);
     }
     @Transactional public Saved save(User user,Evaluation request) {

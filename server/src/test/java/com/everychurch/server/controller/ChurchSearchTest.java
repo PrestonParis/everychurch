@@ -134,6 +134,24 @@ class ChurchSearchTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void churchOfChristFilterMatchesItsLabelButNotTheUnitedChurchOfChrist() throws Exception {
+        // The filter used to match only a raw "COC" code, never the stored label, so it
+        // returned nothing in production and these churches showed under "Other".
+        createChurch("Cedar Creek Fixture Church of Christ", "Church of Christ", "QC", "Cocton");
+        createChurch("Pilgrim Fixture United Church of Christ", "United Church of Christ", "QC", "Cocton");
+
+        mockMvc.perform(get("/api/churches").param("denomination", "Church of Christ").param("state", "QC"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].name").value("Cedar Creek Fixture Church of Christ"));
+
+        mockMvc.perform(get("/api/churches").param("denomination", "Other").param("state", "QC"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1))
+            .andExpect(jsonPath("$.content[0].name").value("Pilgrim Fixture United Church of Christ"));
+    }
+
+    @Test
     void citySuggestionsMatchPrefixCaseInsensitively() throws Exception {
         createChurch("Suggestion Fixture Church", "Methodist", "SU", "Suggestville");
 

@@ -4,7 +4,8 @@ import { DestroyRef } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { Subject, debounceTime, distinctUntilChanged, interval, switchMap } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Subject, debounceTime, distinctUntilChanged, interval, retry, switchMap, timer } from 'rxjs';
 import { Church, DENOMINATIONS } from '../../models/church.model';
 import { ChurchService } from '../../services/church.service';
 import { FavoriteButtonComponent } from '../../components/favorite-button.component';
@@ -22,6 +23,11 @@ const COLD_START_THRESHOLD = 50;
 const ONBOARDING_POLL_TIMEOUT_MS = 120_000;
 
 const PAGE_SIZE = 20;
+/** Retries ride out a Cloud Run cold start or brief blip (network error / 502-504)
+ *  before showing the error state. Real 4xx/500s fail immediately. */
+const SEARCH_RETRY_DELAYS_MS = [1_000, 3_000, 6_000];
+const isTransient = (err: unknown) =>
+  err instanceof HttpErrorResponse && (err.status === 0 || err.status >= 502);
 const SEED_STORAGE_KEY = 'ec_browse_seed';
 
 @Component({
@@ -272,6 +278,15 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
         page: nextPage,
         size: PAGE_SIZE,
       })
+      .pipe(
+        retry({
+          count: SEARCH_RETRY_DELAYS_MS.length,
+          delay: (err, attempt) => {
+            if (!isTransient(err)) throw err;
+            return timer(SEARCH_RETRY_DELAYS_MS[attempt - 1]);
+          },
+        }),
+      )
       .subscribe({
         next: (result) => {
           this.results.set(reset ? result.content : [...this.results(), ...result.content]);
@@ -287,6 +302,10 @@ export class ChurchListComponent implements AfterViewInit, OnDestroy {
           this.loadingMore.set(false);
         },
       });
+  }
+
+  retrySearch() {
+    this.runSearch(true);
   }
 
   loadMore() {

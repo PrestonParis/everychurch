@@ -56,6 +56,16 @@ def test_get_with_retry_raises_the_last_error_after_exhausting_attempts(monkeypa
 
 
 @responses.activate
+def test_fetch_all_existing_churches_can_fetch_one_state():
+    responses.add(
+        responses.GET, URL, json={"content": [{"name": "A"}], "totalPages": 1},
+        match=[responses.matchers.query_param_matcher({"page": "0", "size": "200", "state": "RI"})],
+    )
+
+    assert fetch_all_existing_churches("https://api.example.com", requests_session(), state="RI") == [{"name": "A"}]
+
+
+@responses.activate
 def test_fetch_all_existing_churches_still_works_through_a_transient_retry(monkeypatch):
     import scraper.existing_churches as m
 

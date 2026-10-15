@@ -14,7 +14,7 @@ name = "everychurch.scraper"
 version = "1.0.0"
 description = "AWS Lambda worker for scraping and processing church data"
 authors = [ ]
-license = 'Proprietary'
+license = 'MIT'
 readme = 'README.md'
 
   [[tool.poetry.packages]]

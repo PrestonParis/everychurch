@@ -153,9 +153,10 @@ Compared against the alternatives:
 ## Deployment / Hosting
 
 - `apps/scraper` runs as a scheduled AWS Lambda (per README) — see [SCRAPER.md](SCRAPER.md) for its pipeline, which now includes real Places API discovery, dedup, enrichment, and submission to the server (`apps/scraper/scraper/pipeline.py`).
-- `server` and `apps/client` hosting targets are not yet decided.
+- `apps/client` is live on **Vercel** at https://everychurch.co (`vercel.json`).
+- `server` is live on **Google Cloud Run** (us-east1) at https://everychurch-server-274948593192.us-east1.run.app. The client never calls it directly: `vercel.json` rewrites `/api/*` and `/ws/*` on everychurch.co to it. Scripts (`SERVER_BASE_URL`) should use the Cloud Run URL directly — see [COMMANDS.md](COMMANDS.md) "Production URLs".
 
-> Suggestions below (Prompt 16 feedback item #7: "We'll worry about deployment later but give some suggestions"). Nothing here is implemented — no infra exists yet, this is a menu to choose from when deployment actually becomes the task.
+> Historical — written before the hosts above were chosen. Suggestions below (Prompt 16 feedback item #7: "We'll worry about deployment later but give some suggestions"). Nothing here is implemented — no infra exists yet, this is a menu to choose from when deployment actually becomes the task.
 
 **Server (`server`, Spring Boot 4/Java 21):** the app is a plain stateless JAR (no filesystem state, no session affinity needed — JWT auth is stateless, chat presence lives in-memory per WebSocket connection so a single-instance deploy is fine to start), which keeps the options open:
 - **Simplest to operate:** a single small VM (EC2, DigitalOcean Droplet, Fly.io, Render) running the JAR behind a reverse proxy. Cheapest, easiest to reason about, fine at this project's current scale.

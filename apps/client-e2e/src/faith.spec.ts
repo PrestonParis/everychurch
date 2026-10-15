@@ -27,15 +27,16 @@ test('anonymous visitor completes quiz and explores sourced, uncertain results o
     await page.getByRole('button', { name: 'Next →', exact: true }).click();
   await page.getByRole('button', { name: 'See my results' }).click();
   await expect(
-    page.getByRole('heading', { name: 'Room to explore.' }),
+    page.getByRole('heading', { name: 'Your results' }),
   ).toBeVisible();
   await expect(
-    page.getByRole('heading', { name: 'Traditions to explore' }),
+    page.getByRole('heading', {
+      name: 'How you compare with major traditions',
+    }),
   ).toBeVisible();
-  await expect(
-    page.getByText('Limited information', { exact: true }).first(),
-  ).toBeVisible();
-  await expect(page.locator('app-faith-match').first()).toContainText('known');
+  await expect(page.locator('app-faith-match').first()).toContainText(
+    'Based on',
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -46,10 +47,10 @@ test('anonymous visitor completes quiz and explores sourced, uncertain results o
     path: '/tmp/everychurch-faith-mobile.png',
     fullPage: true,
   });
-  await page.getByRole('button', { name: 'Clear this session' }).click();
+  await page.getByRole('button', { name: 'Start over' }).click();
   await page.getByRole('link', { name: 'Your results' }).click();
   await expect(
-    page.getByText('Take the quiz to explore your alignment'),
+    page.getByText('Take the quiz to see how your beliefs compare'),
   ).toBeVisible();
 });
 
@@ -121,7 +122,7 @@ test('church owner publishes beliefs, visitor matches, and saved results are pri
   await page.getByRole('button', { name: 'See my results' }).click();
   await page.getByLabel('City', { exact: true }).fill('Faithville');
   await page.getByLabel('State (for example, IL)').fill('IL');
-  await page.getByRole('button', { name: 'Search city & state' }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(
     page.getByRole('link', { name: 'Faith E2E Parish →' }).first(),
   ).toBeVisible();
@@ -131,7 +132,7 @@ test('church owner publishes beliefs, visitor matches, and saved results are pri
       .first(),
   ).toBeVisible();
   await page
-    .getByRole('button', { name: 'Save privately to my account' })
+    .getByRole('button', { name: 'Save to my account', exact: true })
     .click();
   await expect(page.getByRole('status')).toContainText('Saved privately');
   const anonymous = await browser.newContext();
@@ -141,7 +142,7 @@ test('church owner publishes beliefs, visitor matches, and saved results are pri
   expect(outsider.status()).toBe(401);
   await anonymous.close();
   await page
-    .getByRole('button', { name: 'Delete saved result' })
+    .getByRole('button', { name: 'Delete', exact: true })
     .first()
     .click();
   await expect(

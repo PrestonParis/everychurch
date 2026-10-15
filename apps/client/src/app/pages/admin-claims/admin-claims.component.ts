@@ -19,7 +19,7 @@ export class AdminClaimsComponent {
   statusFilter = signal<ClaimStatus>('PENDING');
   decidingId = signal<number | null>(null);
 
-  readonly STATUSES: ClaimStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
+  readonly STATUSES: ClaimStatus[] = ['PENDING', 'APPROVED', 'REJECTED', 'RELEASED'];
 
   constructor() {
     this.refresh();

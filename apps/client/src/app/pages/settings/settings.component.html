@@ -207,7 +207,20 @@
             @case ('preferences') {
               <div class="bg-surface rounded-2xl ring-1 ring-ink/10 p-6">
                 <h2 class="text-lg font-serif font-semibold text-ink mb-5">Preferences</h2>
-                <h3 class="text-sm font-semibold text-ink mb-2">Learn</h3>
+                <h3 class="text-sm font-semibold text-ink mb-1">Appearance</h3>
+                <p class="text-xs text-ink-muted mb-3">System follows your device's light/dark setting. Saved on this device.</p>
+                <div role="radiogroup" aria-label="Theme" class="inline-flex p-1 mb-6 rounded-lg bg-parchment ring-1 ring-hairline">
+                  @for (opt of themeOptions; track opt.id) {
+                    <button type="button" role="radio" [attr.aria-checked]="themeService.preference() === opt.id"
+                            (click)="themeService.setPreference(opt.id)"
+                            [class]="themeService.preference() === opt.id ? 'bg-surface text-ink font-semibold shadow-sm' : 'text-ink-muted hover:text-ink'"
+                            class="px-4 py-1.5 rounded-md text-sm transition-colors">
+                      {{ opt.label }}
+                    </button>
+                  }
+                </div>
+
+                <h3 class="text-sm font-semibold text-ink mb-2 pt-5 border-t border-hairline">Learn</h3>
                 @if (savedQuizCount() === null) {
                   <div class="w-4 h-4 rounded-full border-2 border-oxblood border-t-transparent animate-spin"></div>
                 } @else if (savedQuizCount() === 0) {
@@ -350,7 +363,7 @@
                           <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-parchment">
                             <span class="text-sm text-ink">{{ claim.churchName }}</span>
                             <span class="text-xs font-medium px-2 py-0.5 rounded-full"
-                                  [class]="claim.status === 'PENDING' ? 'bg-gold/15 text-oxblood' : claim.status === 'APPROVED' ? 'bg-oxblood/10 text-oxblood' : 'bg-red-100 text-red-700'">
+                                  [class]="claim.status === 'PENDING' ? 'bg-gold/15 text-oxblood' : claim.status === 'APPROVED' ? 'bg-oxblood/10 text-oxblood' : claim.status === 'RELEASED' ? 'bg-ink/5 text-ink-muted' : 'bg-red-100 text-red-700'">
                               {{ claim.status }}
                             </span>
                           </div>

@@ -2,13 +2,16 @@ package com.everychurch.server.service;
 
 import com.everychurch.server.dto.ClaimDto;
 import com.everychurch.server.model.Church;
+import com.everychurch.server.model.ChurchStaff;
 import com.everychurch.server.model.Claim;
 import com.everychurch.server.model.ClaimStatus;
 import com.everychurch.server.model.Role;
 import com.everychurch.server.model.User;
 import com.everychurch.server.repository.ChurchRepository;
+import com.everychurch.server.repository.ChurchStaffRepository;
 import com.everychurch.server.repository.ClaimRepository;
 import com.everychurch.server.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,17 +26,20 @@ public class ClaimService {
     private final ChurchRepository churchRepository;
     private final UserRepository userRepository;
     private final ChurchStaffService churchStaffService;
+    private final ChurchStaffRepository churchStaffRepository;
 
     public ClaimService(
         ClaimRepository claimRepository,
         ChurchRepository churchRepository,
         UserRepository userRepository,
-        ChurchStaffService churchStaffService
+        ChurchStaffService churchStaffService,
+        ChurchStaffRepository churchStaffRepository
     ) {
         this.claimRepository = claimRepository;
         this.churchRepository = churchRepository;
         this.userRepository = userRepository;
         this.churchStaffService = churchStaffService;
+        this.churchStaffRepository = churchStaffRepository;
     }
 
     public ClaimDto requestClaim(Long churchId, User requester, String notes) {
@@ -86,6 +92,47 @@ public class ClaimService {
         churchStaffService.grantOwnership(church, requester);
 
         return toDto(claimRepository.save(claim));
+    }
+
+    /**
+     * Unclaims a church — the owner giving it up, or a Platform Admin taking it back.
+     * Undoes everything approve() set up: the church goes back to unclaimed, every
+     * ChurchStaff row on it is removed (staff were appointed by the outgoing owner, so
+     * they don't carry over to whoever claims it next), and anyone left staffing no
+     * church at all drops from CHURCH_ADMIN back to MEMBER. The approved Claim is kept,
+     * marked RELEASED, so the history still shows who owned it.
+     */
+    @Transactional
+    public void release(Long churchId, User requester) {
+        Church church = churchRepository.findById(churchId)
+            .orElseThrow(() -> new NoSuchElementException("No such church"));
+        if (!church.isClaimed()) {
+            throw new IllegalStateException("This church isn't claimed");
+        }
+
+        List<ChurchStaff> staff = churchStaffRepository.findByChurchId(churchId);
+        boolean isOwner = staff.stream().anyMatch(s -> s.isOwner() && s.getUser().getId().equals(requester.getId()));
+        if (!isOwner && requester.getRole() != Role.PLATFORM_ADMIN) {
+            throw new AccessDeniedException("Only the church's owner or a Platform Admin can unclaim it");
+        }
+
+        churchStaffRepository.deleteAll(staff);
+        churchStaffRepository.flush();
+        for (ChurchStaff removed : staff) {
+            User user = removed.getUser();
+            if (user.getRole() == Role.CHURCH_ADMIN && churchStaffRepository.findByUserId(user.getId()).isEmpty()) {
+                user.setRole(Role.MEMBER);
+                userRepository.save(user);
+            }
+        }
+
+        for (Claim claim : claimRepository.findByChurchIdAndStatus(churchId, ClaimStatus.APPROVED)) {
+            claim.setStatus(ClaimStatus.RELEASED);
+            claimRepository.save(claim);
+        }
+
+        church.setClaimed(false);
+        churchRepository.save(church);
     }
 
     public ClaimDto reject(Long claimId, User admin) {

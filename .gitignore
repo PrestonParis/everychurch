@@ -4,6 +4,7 @@
 dist
 tmp
 out-tsc
+.next
 
 # dependencies
 node_modules
@@ -66,3 +67,8 @@ Thumbs.db
 ### VS Code ###
 .vscode/
 CLAUDE.md
+
+# Scraper run artifacts (local logs, the Overpass download cache, the website crawl cache)
+apps/scraper/*.log
+apps/scraper/osm_elements.json
+apps/scraper/website_crawl.jsonl

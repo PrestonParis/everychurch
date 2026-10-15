@@ -19,6 +19,13 @@ describe('App', () => {
     expect(compiled.querySelector('nav')?.textContent).toContain('EveryChurch');
   });
 
+  it('credits OpenStreetMap site-wide, as the ODbL license on imported churches requires', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('footer a[href="https://www.openstreetmap.org/copyright"]');
+    expect(link?.textContent).toContain('© OpenStreetMap contributors');
+  });
+
   /** Browse's routerLink target (/churches) is also this app's default route, so
    *  clicking it while already there is a same-URL navigation the Router ignores
    *  outright (no NavigationEnd fires) — any active search/filters on the church

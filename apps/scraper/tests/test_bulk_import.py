@@ -355,7 +355,10 @@ def test_submit_batch_falls_back_to_batch_length_when_response_omits_created():
 # --- download_dataset / load_rows -------------------------------------------------
 
 def test_download_dataset_builds_the_csv_path():
-    with patch("scraper.bulk_import.kagglehub.dataset_download", return_value="/tmp/dataset-dir") as download:
+    fake_kagglehub = MagicMock()
+    download = fake_kagglehub.dataset_download
+    download.return_value = "/tmp/dataset-dir"
+    with patch.dict("sys.modules", {"kagglehub": fake_kagglehub}):
         path = download_dataset()
 
     download.assert_called_once_with("mexwell/us-places-of-worship")

@@ -1,6 +1,7 @@
 package com.everychurch.server.service;
 
 import com.everychurch.server.dto.ChurchDto;
+import com.everychurch.server.dto.NormalizeCaseResponse;
 import com.everychurch.server.dto.ServiceTimeDto;
 import com.everychurch.server.model.Church;
 import com.everychurch.server.model.ChurchPermission;
@@ -86,6 +87,20 @@ public class ChurchService {
         return toDto(saved);
     }
 
+    /**
+     * create() for a trusted bulk source (BulkImportController): also gives an ALL-CAPS
+     * name/street/city ordinary capitalization (NameCase), since HIFLD files every
+     * church in capitals. People's own submissions keep exactly what they typed.
+     */
+    public ChurchDto createImported(ChurchDto dto) {
+        Church church = new Church();
+        applyDto(church, dto);
+        fixCase(church);
+        Church saved = repo.save(church);
+        syncGeoPoint(saved);
+        return toDto(saved);
+    }
+
     public ChurchDto update(Long id, ChurchDto dto, User requester) {
         Church church = repo.findById(id)
             .orElseThrow(() -> new NoSuchElementException("Church not found: " + id));
@@ -106,6 +121,93 @@ public class ChurchService {
         Church saved = repo.save(church);
         syncGeoPoint(saved);
         return toDto(saved);
+    }
+
+    /**
+     * Backfill from a trusted bulk source (BulkImportController's /fill, fed by
+     * apps/scraper's osm_fill.py): copies each non-blank field of {@code dto} onto the
+     * church ONLY where the church's own value is blank — never overwrites, so a re-run
+     * or a second source can't clobber what's already there. Service times are filled
+     * only when the church has none at all (merging two schedules would invent one
+     * nobody published). A claimed church is skipped entirely: its owner manages it,
+     * and an import silently editing a claimed profile is exactly what claiming is
+     * meant to prevent. Name, state and coordinates are never touched — the caller
+     * matched on them. Returns false when nothing changed (unknown id, claimed, or no
+     * blank the dto could fill).
+     */
+    public boolean fillBlanks(ChurchDto dto) {
+        if (dto.id() == null) return false;
+        Church c = repo.findById(dto.id()).orElse(null);
+        if (c == null || c.isClaimed()) return false;
+
+        boolean changed = false;
+        changed |= fill(c.getDenomination(), dto.denomination(), c::setDenomination);
+        changed |= fill(c.getAddress(), dto.address(), c::setAddress);
+        changed |= fill(c.getCity(), dto.city(), c::setCity);
+        changed |= fill(c.getZipCode(), dto.zipCode(), c::setZipCode);
+        changed |= fill(c.getPhone(), dto.phone(), c::setPhone);
+        changed |= fill(c.getEmail(), dto.email(), c::setEmail);
+        changed |= fill(c.getWebsite(), dto.website(), c::setWebsite);
+        changed |= fill(c.getDescription(), dto.description(), c::setDescription);
+        changed |= fill(c.getImageUrl(), dto.imageUrl(), c::setImageUrl);
+        changed |= fill(c.getPastor(), dto.pastor(), c::setPastor);
+        changed |= fill(c.getFacebook(), dto.facebook(), c::setFacebook);
+        changed |= fill(c.getInstagram(), dto.instagram(), c::setInstagram);
+        changed |= fill(c.getYoutube(), dto.youtube(), c::setYoutube);
+
+        if (c.getServiceTimes().isEmpty() && dto.serviceTimes() != null && !dto.serviceTimes().isEmpty()) {
+            for (ServiceTimeDto st : dto.serviceTimes()) {
+                ServiceTime s = new ServiceTime();
+                s.setDayOfWeek(st.dayOfWeek());
+                s.setTime(st.time());
+                s.setType(st.type());
+                s.setLanguage(st.language());
+                s.setChurch(c);
+                c.getServiceTimes().add(s);
+            }
+            c.setServiceSummary(buildServiceSummary(dto.serviceTimes()));
+            changed = true;
+        }
+
+        if (changed) repo.save(c);
+        return changed;
+    }
+
+    /**
+     * One batch of the ALL-CAPS backfill (BulkImportController's /normalize-case): the
+     * next {@code limit} churches by id after {@code afterId}, each unclaimed one's
+     * name/street/city run through NameCase. Paged by id so a caller can resume anywhere,
+     * and idempotent, since NameCase leaves anything already mixed-case alone. Claimed
+     * churches are skipped for the same reason fillBlanks skips them.
+     */
+    public NormalizeCaseResponse normalizeCase(long afterId, int limit) {
+        List<Church> batch = repo.findByIdGreaterThanOrderByIdAsc(afterId, PageRequest.of(0, limit));
+        int updated = 0;
+        for (Church c : batch) {
+            if (!c.isClaimed() && fixCase(c)) updated++;  // flushed by dirty checking at commit
+        }
+        Long next = batch.size() < limit ? null : batch.get(batch.size() - 1).getId();
+        return new NormalizeCaseResponse(batch.size(), updated, next);
+    }
+
+    private static boolean fixCase(Church c) {
+        boolean changed = false;
+        changed |= replace(c.getName(), NameCase.fix(c.getName()), c::setName);
+        changed |= replace(c.getAddress(), NameCase.fix(c.getAddress()), c::setAddress);
+        changed |= replace(c.getCity(), NameCase.fix(c.getCity()), c::setCity);
+        return changed;
+    }
+
+    private static boolean replace(String current, String fixed, java.util.function.Consumer<String> setter) {
+        if (Objects.equals(current, fixed)) return false;
+        setter.accept(fixed);
+        return true;
+    }
+
+    private static boolean fill(String current, String proposed, java.util.function.Consumer<String> setter) {
+        if ((current != null && !current.isBlank()) || proposed == null || proposed.isBlank()) return false;
+        setter.accept(proposed.trim());
+        return true;
     }
 
     // geo_point isn't JPA-mapped (Hibernate doesn't natively speak PostGIS types), so

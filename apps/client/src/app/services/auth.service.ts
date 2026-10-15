@@ -99,9 +99,28 @@ export class AuthService {
   private readStoredSession(): StoredSession | null {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as StoredSession) : null;
+      if (!raw) return null;
+      const session = JSON.parse(raw) as StoredSession;
+      // The server's JWTs expire (24h by default) but the stored session doesn't — without
+      // this the app would keep showing a logged-in UI whose every request comes back 401.
+      if (isExpired(session.token)) {
+        localStorage.removeItem(STORAGE_KEY);
+        return null;
+      }
+      return session;
     } catch {
       return null;
     }
+  }
+}
+
+/** True if the JWT's `exp` claim is in the past, or the token can't be read at all. */
+function isExpired(token: string): boolean {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(payload)) as { exp?: number };
+    return typeof exp === 'number' && exp * 1000 <= Date.now();
+  } catch {
+    return true;
   }
 }

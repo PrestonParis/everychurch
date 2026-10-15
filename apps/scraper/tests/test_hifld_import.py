@@ -12,6 +12,7 @@ from scraper.hifld_import import (
     _denomination_from_name,
     _zip_code,
     fetch_all_records,
+    has_coordinates,
     is_church,
     run,
     to_church_dto_shape,
@@ -78,6 +79,47 @@ def test_denomination_from_name_matches_known_keywords():
     assert _denomination_from_name("GRACE NON-DENOMINATIONAL CHURCH") == "Non-denominational"
     assert _denomination_from_name("FAITH NONDENOMINATIONAL FELLOWSHIP") == "Non-denominational"
     assert _denomination_from_name("GRACE EVANGELICAL CHURCH") == "Evangelical"
+
+
+def test_denomination_from_name_covers_bodies_bucketed_like_the_kaggle_code_map():
+    assert _denomination_from_name("BELLS CHAPEL CHURCH OF THE NAZARENE") == "Evangelical"
+    assert _denomination_from_name("SWEET ANOINTING CHURCH OF GOD IN CHRIST") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CHURCH OF GOD OF PROPHECY BIBLE PLACE") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CHRIST APOSTOLIC CHURCH MOUNTAIN OF GLORY INC") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("ANGELUS TEMPLE FOURSQUARE CHURCH") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("IGLESIA DE DIOS PENTECOSTAL") == "Pentecostal / Assembly of God"
+    assert _denomination_from_name("CLAY COUNTY FIRST CHURCH OF GOD") is None
+    assert _denomination_from_name("IGLESIA DE DIOS LA ROCA") is None
+    assert _denomination_from_name("IGLESIA DE CRISTO KADOSH") is None
+    assert _denomination_from_name("IGLESIA EVANGELICA MISIONERA") is None
+    assert _denomination_from_name("FIRST WESLEYAN CHURCH") == "Methodist"
+    assert _denomination_from_name("IGLESIA BAUTISTA EMANUEL") == "Baptist"
+    assert _denomination_from_name("GRACE BRETHREN CHURCH") == "Other"
+    assert _denomination_from_name("FIRST CHRISTIAN CHURCH DISCIPLES OF CHRIST") == "Other"
+
+
+def test_denomination_from_name_reads_ame_and_cme_as_whole_words():
+    assert _denomination_from_name("BETHEL AME CHURCH") == "Methodist"
+    assert _denomination_from_name("BETHEL A M E CHURCH") == "Methodist"
+    assert _denomination_from_name("MT ZION A.M.E. ZION CHURCH") == "Methodist"
+    assert _denomination_from_name("GRACE CME CHURCH") == "Methodist"
+    assert _denomination_from_name("ST JAMES CHAPEL") is None
+
+
+def test_denomination_from_name_prefers_the_more_specific_body():
+    assert _denomination_from_name("AFRICAN METHODIST EPISCOPAL CHURCH") == "Methodist"
+    assert _denomination_from_name("PILGRIM UNITED CHURCH OF CHRIST") == "Other"
+    assert _denomination_from_name("REFORMED PRESBYTERIAN CHURCH") == "Presbyterian"
+    assert _denomination_from_name("EVANGELICAL LUTHERAN CHURCH") == "Lutheran"
+    assert _denomination_from_name("NEW APOSTOLIC CHURCH OF WATERVLIET MI") == "Other"
+    assert _denomination_from_name("APOSTOLIC CHRISTIAN CHURCH OF MEDIAPOLIS") == "Other"
+    assert _denomination_from_name("IGLESIA DE DIOS SEPTIMO DIA INC") == "Other"
+    assert _denomination_from_name("SEVENTH DAY CHURCH OF GOD") == "Other"
+
+
+def test_denomination_from_name_leaves_bodies_with_no_honest_bucket_blank():
+    assert _denomination_from_name("ST GREGORY ARMENIAN APOSTOLIC CHURCH") is None
+    assert _denomination_from_name("HOLY APOSTOLIC CATHOLIC ASSYRIAN CHURCH OF THE EAST") is None
 
 
 def test_denomination_from_name_returns_none_when_nothing_matches():
@@ -294,14 +336,47 @@ def test_fetch_all_records_raises_on_an_error_body_despite_http_200():
         fetch_all_records(requests_session())
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "EMMANUEL ASSEMBLY OF GOD",
+        "IGLESIA BETHESDA INC",
+        "MINISTERIO APOSTOLICO JESUCRISTO ES EL SENOR INC",
+        "IGREJA BATISTA BRASILEIRA",
+        "PISCATAQUIS RIVER CHRISTIAN CENTER",
+        "LITTLE HOUSE OF PRAYER INC",
+    ],
+)
+def test_is_church_true_for_congregations_that_never_say_church(name):
+    # Real names from the live service that the original include list missed.
+    assert is_church({"NAME": name, "AFFILIATIO": "3"}) is True
+
+
+# --- has_coordinates -----------------------------------------------------------------
+
+def test_has_coordinates_true_when_both_present():
+    assert has_coordinates({"X": -71.04, "Y": 42.35}) is True
+
+
+def test_has_coordinates_false_when_either_is_missing():
+    assert has_coordinates({"X": -71.04}) is False
+    assert has_coordinates({"Y": 42.35}) is False
+    assert has_coordinates({}) is False
+
+
+def test_has_coordinates_true_for_a_zero_coordinate():
+    # 0.0 is a real (if unlikely) value, not a missing one.
+    assert has_coordinates({"X": 0.0, "Y": 0.0}) is True
+
+
 # --- run -------------------------------------------------------------------------------
 
 def test_run_orchestrates_fetch_filter_dedupe_and_ingest():
     config = make_config()
     raw = [
-        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9"},
-        {"NAME": "Maine Council of Churches", "STATE": "ME", "ZIP": "04102", "AFFILIATIO": "3"},
-        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9"},
+        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Maine Council of Churches", "STATE": "ME", "ZIP": "04102", "AFFILIATIO": "3", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
     ]
 
     with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
@@ -321,17 +396,36 @@ def test_run_orchestrates_fetch_filter_dedupe_and_ingest():
     assert result == {
         "totalRecords": 3,
         "churchRecords": 2,
+        "withCoordinates": 2,
         "afterInternalDedup": 2,
         "new": 1,
         "created": 1,
     }
 
 
+def test_run_skips_churches_without_coordinates_so_the_server_never_geocodes():
+    raw = [
+        {"NAME": "First Baptist Church", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "ZIP": "75001", "AFFILIATIO": "9"},
+    ]
+
+    with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
+        "scraper.hifld_import.fetch_all_existing_churches", return_value=[]
+    ), patch("scraper.hifld_import.submit_batch", return_value=1) as submit:
+        result = run(config=make_config(), session=MagicMock(), batch_size=10)
+
+    batch_arg = submit.call_args[0][2]
+    assert [c["name"] for c in batch_arg] == ["First Baptist Church"]
+    assert all(c["latitude"] is not None and c["longitude"] is not None for c in batch_arg)
+    assert result["churchRecords"] == 2
+    assert result["withCoordinates"] == 1
+
+
 def test_run_sleeps_between_multiple_batches():
     config = make_config()
     raw = [
-        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9"},
-        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9"},
+        {"NAME": "First Baptist Church", "STATE": "ME", "ZIP": "04101", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
+        {"NAME": "Grace Chapel", "STATE": "TX", "ZIP": "75001", "AFFILIATIO": "9", "X": -70.2, "Y": 43.6},
     ]
 
     with patch("scraper.hifld_import.fetch_all_records", return_value=raw), patch(
@@ -354,6 +448,7 @@ def test_run_defaults_config_and_session_when_not_given():
     assert result == {
         "totalRecords": 0,
         "churchRecords": 0,
+        "withCoordinates": 0,
         "afterInternalDedup": 0,
         "new": 0,
         "created": 0,

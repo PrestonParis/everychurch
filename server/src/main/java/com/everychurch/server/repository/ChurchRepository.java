@@ -64,6 +64,10 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
     // which (per its own case-insensitivity intent) sends the filter lowercased
     // ("presbyterian"); a bare `:denomination = 'Presbyterian'` never matched that and
     // silently fell through every branch to zero results.
+    // "Church of Christ": the stored label (bulk_import.py / V8 map "COC" to it) plus a raw
+    // "COC" code. It never matched the label itself until 2026-10-03 — the filter returned
+    // nothing and those churches showed under "Other". "United Church of Christ" is a
+    // different (Congregational) body and stays under "Other".
     @Query(
         value = """
             SELECT c.id, c.name, c.denomination, c.address, c.city, c.state, c.zip_code,
@@ -79,7 +83,7 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
               AND (:denomination = '' OR
                 (UPPER(:denomination) = UPPER('Baptist') AND (c.denomination ILIKE '%bapt%' OR c.denomination ILIKE '%sbc%' OR c.denomination ILIKE '%nbc%')) OR
                 (UPPER(:denomination) = UPPER('Catholic') AND c.denomination ILIKE '%cath%') OR
-                (UPPER(:denomination) = UPPER('Church of Christ') AND c.denomination ILIKE '%coc%') OR
+                (UPPER(:denomination) = UPPER('Church of Christ') AND (c.denomination ILIKE '%coc%' OR (c.denomination ILIKE '%church%of christ%' AND c.denomination NOT ILIKE '%united church of christ%'))) OR
                 (UPPER(:denomination) = UPPER('Eastern Orthodox') AND c.denomination ILIKE '%orthodox%') OR
                 (UPPER(:denomination) = UPPER('Episcopal/Anglican') AND (c.denomination ILIKE '%episcop%' OR c.denomination ILIKE '%anglic%')) OR
                 (UPPER(:denomination) = UPPER('Evangelical') AND c.denomination ILIKE '%evangel%') OR
@@ -92,7 +96,7 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
                 (UPPER(:denomination) = UPPER('Seventh-day Adventist') AND (c.denomination ILIKE '%advent%' OR UPPER(c.denomination) = 'SDA')) OR
                 (UPPER(:denomination) = UPPER('Other') AND c.denomination IS NOT NULL AND c.denomination <> '' AND NOT (
                   c.denomination ILIKE '%bapt%' OR c.denomination ILIKE '%sbc%' OR c.denomination ILIKE '%nbc%' OR
-                  c.denomination ILIKE '%cath%' OR c.denomination ILIKE '%coc%' OR c.denomination ILIKE '%orthodox%' OR
+                  c.denomination ILIKE '%cath%' OR c.denomination ILIKE '%coc%' OR (c.denomination ILIKE '%church%of christ%' AND c.denomination NOT ILIKE '%united church of christ%') OR c.denomination ILIKE '%orthodox%' OR
                   c.denomination ILIKE '%episcop%' OR c.denomination ILIKE '%anglic%' OR c.denomination ILIKE '%evangel%' OR
                   c.denomination ILIKE '%latter-day%' OR c.denomination ILIKE '%lds%' OR c.denomination ILIKE '%mormon%' OR
                   c.denomination ILIKE '%luther%' OR c.denomination ILIKE '%method%' OR
@@ -120,7 +124,7 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
               AND (:denomination = '' OR
                 (UPPER(:denomination) = UPPER('Baptist') AND (c.denomination ILIKE '%bapt%' OR c.denomination ILIKE '%sbc%' OR c.denomination ILIKE '%nbc%')) OR
                 (UPPER(:denomination) = UPPER('Catholic') AND c.denomination ILIKE '%cath%') OR
-                (UPPER(:denomination) = UPPER('Church of Christ') AND c.denomination ILIKE '%coc%') OR
+                (UPPER(:denomination) = UPPER('Church of Christ') AND (c.denomination ILIKE '%coc%' OR (c.denomination ILIKE '%church%of christ%' AND c.denomination NOT ILIKE '%united church of christ%'))) OR
                 (UPPER(:denomination) = UPPER('Eastern Orthodox') AND c.denomination ILIKE '%orthodox%') OR
                 (UPPER(:denomination) = UPPER('Episcopal/Anglican') AND (c.denomination ILIKE '%episcop%' OR c.denomination ILIKE '%anglic%')) OR
                 (UPPER(:denomination) = UPPER('Evangelical') AND c.denomination ILIKE '%evangel%') OR
@@ -133,7 +137,7 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
                 (UPPER(:denomination) = UPPER('Seventh-day Adventist') AND (c.denomination ILIKE '%advent%' OR UPPER(c.denomination) = 'SDA')) OR
                 (UPPER(:denomination) = UPPER('Other') AND c.denomination IS NOT NULL AND c.denomination <> '' AND NOT (
                   c.denomination ILIKE '%bapt%' OR c.denomination ILIKE '%sbc%' OR c.denomination ILIKE '%nbc%' OR
-                  c.denomination ILIKE '%cath%' OR c.denomination ILIKE '%coc%' OR c.denomination ILIKE '%orthodox%' OR
+                  c.denomination ILIKE '%cath%' OR c.denomination ILIKE '%coc%' OR (c.denomination ILIKE '%church%of christ%' AND c.denomination NOT ILIKE '%united church of christ%') OR c.denomination ILIKE '%orthodox%' OR
                   c.denomination ILIKE '%episcop%' OR c.denomination ILIKE '%anglic%' OR c.denomination ILIKE '%evangel%' OR
                   c.denomination ILIKE '%latter-day%' OR c.denomination ILIKE '%lds%' OR c.denomination ILIKE '%mormon%' OR
                   c.denomination ILIKE '%luther%' OR c.denomination ILIKE '%method%' OR
@@ -191,6 +195,10 @@ public interface ChurchRepository extends JpaRepository<Church, Long> {
 
     // geo_point isn't JPA-mapped (see Church/ChurchService) — kept in sync with
     // latitude/longitude via this native UPDATE, run right after every save.
+    // NameCase backfill paging (ChurchService.normalizeCase): keyset by id, so each batch
+    // is an index range scan wherever the caller resumes.
+    java.util.List<Church> findByIdGreaterThanOrderByIdAsc(Long id, org.springframework.data.domain.Pageable pageable);
+
     @Modifying
     @Query(value = "UPDATE churches SET geo_point = ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography WHERE id = :id", nativeQuery = true)
     void updateGeoPoint(@Param("id") Long id, @Param("lat") double lat, @Param("lng") double lng);
