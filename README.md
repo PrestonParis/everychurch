@@ -60,8 +60,6 @@ npx nx test scraper
 
 The current suites include 202 backend tests, 122 frontend unit tests, and 494 scraper tests with 100% coverage, plus a three-browser public-page smoke check and three isolated end-to-end faith journeys. They cover frontend behavior, browser journeys, scraper pagination and retries, church matching, schedule extraction, and safeguards against enriching the wrong listing.
 
-AI-assisted development was used for implementation and review; architecture, product decisions, testing, and final code ownership remain human-directed.
-
 ## Running locally
 
 ### Prerequisites
